@@ -10,3 +10,4 @@ testapp
 coverage.xml
 __pycache__
 src/data_neuron/__pycache__
+**__pycache__**

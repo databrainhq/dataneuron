@@ -19,6 +19,10 @@ def print_info(message, indent=0):
     click.echo(f"{' ' * indent}{Fore.BLUE} {message}{Style.RESET_ALL}")
 
 
+def print_info_secondary(message):
+    click.echo(f"{Fore.YELLOW} {message}{Style.RESET_ALL}")
+
+
 def print_warning(message):
     click.echo(f"{Fore.YELLOW}⚠ {message}{Style.RESET_ALL}")
 
@@ -32,17 +36,15 @@ def print_step(step_number, total_steps, message):
         f"{Fore.CYAN}[{step_number}/{total_steps}] {message}{Style.RESET_ALL}")
 
 
-def create_confirmation_box(command, action):
+def create_box(title="Confirmation", line1="", line2=""):
     terminal_width = shutil.get_terminal_size().columns
     # Max width of 60 or terminal width - 4
     box_width = min(terminal_width - 4, 60)
 
-    # Center the title
-    title = "Confirmation"
     title_line = f"| {title.center(box_width - 2)} |"
 
-    command_line = f"| {command.center(box_width - 2)} |"
-    action_line = f"| {action.center(box_width - 2)} |"
+    command_line = f"| {line1.center(box_width - 2)} |"
+    action_line = f"| {line2.center(box_width - 2)} |"
 
     confirmation_box = f"""
 {Fore.CYAN}{' ' * ((terminal_width - box_width) // 2)}┌{'─' * box_width}┐
@@ -57,4 +59,4 @@ def create_confirmation_box(command, action):
 
 
 def print_header(message):
-    click.echo(f"\n🎾 {Fore.CYAN}{message}{Style.RESET_ALL}\n")
+    click.echo(f"\n🧠{Fore.CYAN}{message}{Style.RESET_ALL}\n")
