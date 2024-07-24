@@ -25,11 +25,40 @@ def sql_query_prompt(query, context):
     prompt = f"""
     {context_prompt}
     
-    User Query: "{query}"
+    The Query: "{query}"
     
-    Please generate an SQL query to answer the user's question.
-    Use the provided aliases and global definitions to interpret the user's query.
-    Return only the SQL query, without any additional explanation.
+    Based on the given database context and the given query, please provide:
+    
+    1. A very short explanation of your reasoning process, including:
+       - How you interpreted the user's question
+       - Which tables and columns you chose to use and why
+       - Any assumptions you made
+       - Any potential ambiguities in the query and how you resolved them
+    2. A list of the specific tables, columns, and definitions you referenced from the provided context.
+    3. The SQL query to answer the user's question.
+    4. Any caveats or limitations of the generated SQL query.
+
+    Please format your response as an XML as follows:
+
+    example:
+
+    <response>
+        <sql> The generated SQL query </sql>
+        <explanation> Your explanation </explanation>
+        <references>
+        Referenced Elements:
+        - Tables: users, orders
+        - Columns: users.name, orders.id
+        - Definitions: ..
+        </references>
+        <note>
+        Any caveats or limitations of the query
+        </note>
+    </response>
+
+    Remember to use the provided aliases and global definitions to interpret the user's query accurately.
+
+    Stricy answer with only XML response as it will be parsed as xml, no other extra words.
     """
 
     return prompt

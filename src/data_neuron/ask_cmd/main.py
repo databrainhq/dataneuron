@@ -26,13 +26,13 @@ def query(ask):
 
     print_info_secondary(f"SQL query: {sql_query}\n")
 
-    print_info("⛏️ Executing the query..")
-    # Execute the query
-    result = execute_query(sql_query)
-    # result = "30"
+    # # print_info("⛏️ Executing the query..")
+    # # # Execute the query
+    # # result = execute_query(sql_query)
+    # # result = "30"
 
-    res = create_box("Result", result, "")
-    print(res)
+    # res = create_box("Result", result, "")
+    # print(res)
 
 
 if __name__ == '__main__':

@@ -3,6 +3,7 @@ import click
 from .claude_api import call_claude_api_with_pagination, call_claude_vision_api_with_pagination, stream_claude_response
 from .openai_api import call_api_with_pagination, call_vision_api_with_pagination, stream_response
 from ..utils.print import print_debug, print_info
+from ..utils.stream_print import process_simplified_xml
 import xml.etree.ElementTree as ET
 
 
@@ -33,8 +34,8 @@ def stream_neuron_api(query, include_context=False, instruction_prompt=None, pri
         for chunk in stream_response(query, instruction_prompt):
             if print_chunk:
                 click.echo(chunk, nl=False)
-            # else:
-                # pretty_print_xml_stream(chunk, state)
+            else:
+                process_simplified_xml(chunk, state)
             xml_buffer += chunk
 
         return xml_buffer
