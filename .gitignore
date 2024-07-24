@@ -1,0 +1,10 @@
+.venv
+.env
+dist
+build
+testapp
+.git
+.pytest_cache
+.python-version
+.coverage
+coverage.xml

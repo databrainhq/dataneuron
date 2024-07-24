@@ -1,0 +1,109 @@
+{
+  "project_name": "",
+  "last_updated": "2024-07-24T12:28:30.734249",
+  "files": [
+    {
+      "filename": "data_neuron/__init__.py",
+      "type": "python package initializer",
+      "content_preview": "# empty file",
+      "description": "initializer for python package data_neuron, located in the data_neuron directory",
+      "exports": "None"
+    },
+    {
+      "filename": "data_neuron/cli.py",
+      "type": "python source file",
+      "content_preview": "# empty file",
+      "description": "source file in the data_neuron package, located in the data_neuron directory",
+      "exports": "None"
+    },
+    {
+      "filename": "data_neuron/context_loader.py",
+      "type": "python source file",
+      "content_preview": "# empty file",
+      "description": "source file in the data_neuron package, located in the data_neuron directory",
+      "exports": "None"
+    },
+    {
+      "filename": "data_neuron/llm_processor.py",
+      "type": "python source file",
+      "content_preview": "# empty file",
+      "description": "source file in the data_neuron package, located in the data_neuron directory",
+      "exports": "None"
+    },
+    {
+      "filename": "data_neuron/query_executor.py",
+      "type": "python source file",
+      "content_preview": "# empty file",
+      "description": "source file in the data_neuron package, located in the data_neuron directory",
+      "exports": "None"
+    },
+    {
+      "filename": "data_neuron/config.py",
+      "type": "python source file",
+      "content_preview": "# empty file",
+      "description": "source file in the data_neuron package, located in the data_neuron directory",
+      "exports": "None"
+    },
+    {
+      "filename": "tests/__init__.py",
+      "type": "python package initializer",
+      "content_preview": "# empty file",
+      "description": "initializer for python package tests, located in the tests directory",
+      "exports": "None"
+    },
+    {
+      "filename": "tests/test_cli.py",
+      "type": "python source file",
+      "content_preview": "# empty file",
+      "description": "unittest file for cli module in the data_neuron package, located in the tests directory",
+      "exports": ""
+    },
+    {
+      "filename": "tests/test_context_loader.py",
+      "type": "python test file",
+      "content_preview": "# empty file",
+      "description": "unittest file for context_loader module in the data_neuron package, located in the tests directory",
+      "exports": "None"
+    },
+    {
+      "filename": "tests/test_llm_processor.py",
+      "type": "python test file",
+      "content_preview": "# empty file",
+      "description": "unittest file for llm_processor module in the data_neuron package, located in the tests directory",
+      "exports": "None"
+    },
+    {
+      "filename": "tests/test_query_executor.py",
+      "type": "python test file",
+      "content_preview": "# empty file",
+      "description": "unittest file for query_executor module in the data_neuron package, located in the tests directory",
+      "exports": "None"
+    },
+    {
+      "filename": "pyproject.toml",
+      "type": "TOML configuration file",
+      "content_preview": "# empty file",
+      "description": "TOML configuration file for the data_neuron project, located in the root directory",
+      "exports": "None"
+    },
+    {
+      "filename": "README.md",
+      "type": "markdown documentation file",
+      "content_preview": "# empty file",
+      "description": "Readme file for the data_neuron project, located in the root directory",
+      "exports": "None"
+    },
+    {
+      "filename": ".gitignore",
+      "type": "gitignore file",
+      "content_preview": "# empty file",
+      "description": "ignores patterns specified in the gitignore file for the data_neuron project, located in the root directory",
+      "exports": "None"
+    }
+  ],
+  "dev_server": {
+    "start_command": "",
+    "framework": "",
+    "language": ""
+  }
+}
