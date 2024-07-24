@@ -4,7 +4,7 @@ from ..db_operations.factory import DatabaseFactory
 
 
 def get_table_list():
-    db = DatabaseFactory.get_database('sqlite', db_path='database/sqlite.db')
+    db = DatabaseFactory.get_database()
     return db.get_table_list()
 
 
@@ -31,7 +31,7 @@ def choose_tables(all_tables):
 
 
 def generate_yaml_for_table(table_name):
-    db = DatabaseFactory.get_database('sqlite', db_path='database/sqlite.db')
+    db = DatabaseFactory.get_database()
     table_info = db.get_table_info(table_name)
 
     from ..prompts.yaml_generation_prompt import table_yaml_prompt
