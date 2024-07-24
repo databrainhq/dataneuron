@@ -1,4 +1,5 @@
 import re
+from queue import Queue
 import click
 
 
@@ -44,7 +45,7 @@ def process_simplified_xml(chunk, state):
 
 
 def stream_and_print_simplified_xml(chunks):
-    state = {'buffer': ''}
+    state = {'buffer': '', 'sql_queue': Queue()}
     for chunk in chunks:
         process_simplified_xml(chunk, state)
 
