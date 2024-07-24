@@ -32,7 +32,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-dnn = "data_neuron.cli:main"
+dnn = "data_neuron.cli:cli"
 
 [tool.pytest.ini_options]
 addopts = "-v"
