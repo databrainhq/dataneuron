@@ -8,3 +8,5 @@ testapp
 .python-version
 .coverage
 coverage.xml
+__pycache__
+src/data_neuron/__pycache__

@@ -2,10 +2,10 @@ import sqlite3
 
 
 def execute_query(query: str) -> str:
-    conn = sqlite3.connect('database/sqlite.db')
-    cursor = conn.cursor()
-
     try:
+        conn = sqlite3.connect('database/sqlite.db')
+        cursor = conn.cursor()
+
         cursor.execute(query)
         results = cursor.fetchall()
 
@@ -14,6 +14,9 @@ def execute_query(query: str) -> str:
 
         return result_str
     except sqlite3.Error as e:
-        return f"An error occurred: {e}"
+        return f"An error occurred: {str(e)}"
+    except Exception as e:
+        return f"An unexpected error occurred: {str(e)}"
     finally:
-        conn.close()
+        if 'conn' in locals():
+            conn.close()
