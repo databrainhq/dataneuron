@@ -1,9 +1,6 @@
 import os
-import click
 from .claude_api import call_claude_api_with_pagination, call_claude_vision_api_with_pagination, stream_claude_response
 from .openai_api import call_api_with_pagination, call_vision_api_with_pagination, stream_response
-from ..utils.print import print_debug, print_info
-from ..utils.stream_print import process_simplified_xml
 import xml.etree.ElementTree as ET
 
 
@@ -17,28 +14,9 @@ def get_api_functions():
         raise ValueError(f"Unsupported LLM type: {llm_type}")
 
 
-def stream_neuron_api(query, include_context=False, instruction_prompt=None, print_chunk=False):
+def stream_neuron_api(query, instruction_prompt=None):
     _, _, stream_response = get_api_functions()
-
-    xml_buffer = ""
-    if print_chunk:
-        print_info("DATA_NEURON: ")
-        for chunk in stream_response(query, instruction_prompt):
-            click.echo(chunk, nl=False)
-        return None
-    else:
-        state = {
-            'buffer': '',
-            'in_step': False,
-        }
-        for chunk in stream_response(query, instruction_prompt):
-            if print_chunk:
-                click.echo(chunk, nl=False)
-            else:
-                process_simplified_xml(chunk, state)
-            xml_buffer += chunk
-
-        return xml_buffer
+    return stream_response(query, instruction_prompt)
 
 
 def call_neuron_api(query, include_context=False, instruction_prompt=None):

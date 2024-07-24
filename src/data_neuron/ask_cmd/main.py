@@ -1,8 +1,12 @@
+from ..prompts.sql_query_prompt import sql_query_prompt
+from ..utils.stream_print import process_simplified_xml
+import threading
+from queue import Queue
+from .query_worker import db_query_worker
+from ..api.main import stream_neuron_api
 import click
 import os
 from ..context_loader import load_context
-from ..llm_processor import process_with_llm
-from ..query_executor import execute_query
 from ..utils.print import print_header, print_prompt, print_info, print_success, print_info_secondary, create_box
 
 
@@ -21,18 +25,32 @@ def query(ask):
     print_success("Context is loaded!\n")
 
     print_prompt("🤖 Sending request to LLM\n")
-    # # # Process the question with LLM
-    sql_query = process_with_llm(ask, context)
+    process_with_llm(ask, context)
 
-    print_info_secondary(f"SQL query: {sql_query}\n")
 
-    # # print_info("⛏️ Executing the query..")
-    # # # Execute the query
-    # # result = execute_query(sql_query)
-    # # result = "30"
+def process_with_llm(query: str, context: dict) -> str:
+    prompt = sql_query_prompt(query, context)
+    system_prompt = "You are a helpful assistant that generates SQL queries based on natural language questions."
+    xml_buffer = ""
+    state = {
+        'buffer': '',
+        'in_step': False,
+        'sql_queue': Queue(),
+        'db_result': None
+    }
 
-    # res = create_box("Result", result, "")
-    # print(res)
+    # Start a thread for database querying
+    db_thread = threading.Thread(
+        target=db_query_worker, args=(state['sql_queue'], state))
+    db_thread.start()
+
+    for chunk in stream_neuron_api(prompt, instruction_prompt=system_prompt):
+        process_simplified_xml(chunk, state)
+        xml_buffer += chunk
+
+    # Signal the database thread to finish
+    state['sql_queue'].put(None)
+    db_thread.join()
 
 
 if __name__ == '__main__':

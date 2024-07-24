@@ -13,6 +13,7 @@ def process_simplified_xml(chunk, state):
         click.echo(click.style("\nGenerated SQL Query:", fg="blue", bold=True))
         click.echo(sql_content)
         state['buffer'] = state['buffer'][sql_match.end():]
+        state['sql_queue'].put(sql_content)
 
     # Process explanation tag
     explanation_match = re.search(
