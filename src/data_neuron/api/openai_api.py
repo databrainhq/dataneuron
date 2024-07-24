@@ -16,7 +16,7 @@ def get_env_variable(name: str, default: Optional[str] = None) -> str:
 
 
 def get_client():
-    llm_type = get_env_variable('DRAVID_LLM', 'openai').lower()
+    llm_type = get_env_variable('DATA_NEURON_LLM', 'openai').lower()
 
     if llm_type == 'azure':
         return AzureOpenAI(
@@ -27,8 +27,8 @@ def get_client():
     elif llm_type == 'openai':
         return OpenAI()
     elif llm_type == 'custom':
-        api_key = get_env_variable("DRAVID_LLM_API_KEY")
-        api_base = get_env_variable("DRAVID_LLM_ENDPOINT")
+        api_key = get_env_variable("DATA_NEURON_LLM_API_KEY")
+        api_base = get_env_variable("DATA_NEURON_LLM_ENDPOINT")
         return OpenAI(api_key=api_key, base_url=api_base)
     elif llm_type == 'ollama':
         return get_ollama_client()
@@ -37,11 +37,11 @@ def get_client():
 
 
 def get_model():
-    llm_type = get_env_variable('DRAVID_LLM', 'openai').lower()
+    llm_type = get_env_variable('DATA_NEURON_LLM', 'openai').lower()
     if llm_type == 'azure':
         return get_env_variable("AZURE_OPENAI_DEPLOYMENT_NAME")
     elif llm_type == 'custom' or llm_type == 'ollama':
-        return get_env_variable("DRAVID_LLM_MODEL")
+        return get_env_variable("DATA_NEURON_LLM_MODEL")
     else:
         return get_env_variable("OPENAI_MODEL", DEFAULT_MODEL)
 
@@ -57,7 +57,7 @@ def parse_response(response: str) -> str:
 
 
 def call_api_with_pagination(query: str, include_context: bool = False, instruction_prompt: Optional[str] = None) -> str:
-    llm_type = get_env_variable('DRAVID_LLM', 'openai').lower()
+    llm_type = get_env_variable('DATA_NEURON_LLM', 'openai').lower()
     model = get_model()
 
     if llm_type == 'ollama':
@@ -88,7 +88,7 @@ def call_api_with_pagination(query: str, include_context: bool = False, instruct
 
 
 def call_vision_api_with_pagination(query: str, image_path: str, include_context: bool = False, instruction_prompt: Optional[str] = None) -> str:
-    llm_type = get_env_variable('DRAVID_LLM', 'openai').lower()
+    llm_type = get_env_variable('DATA_NEURON_LLM', 'openai').lower()
     if llm_type == 'ollama':
         raise NotImplementedError(
             "Vision API is not supported for Ollama models")
@@ -127,19 +127,21 @@ def call_vision_api_with_pagination(query: str, image_path: str, include_context
     return parse_response(full_response)
 
 
-def stream_response(query: str, instruction_prompt: Optional[str] = None) -> Generator[str, None, None]:
-    llm_type = get_env_variable('DRAVID_LLM', 'openai').lower()
+def stream_response(query: str, chat_history: Optional[List[dict]] = None, instruction_prompt: Optional[str] = None) -> Generator[str, None, None]:
+    llm_type = get_env_variable('DATA_NEURON_LLM', 'openai').lower()
     model = get_model()
 
     if llm_type == 'ollama':
-        yield from stream_ollama_response(model, query, instruction_prompt or "")
+        yield from stream_ollama_response(model, query, chat_history, instruction_prompt or "")
         return
 
     client = get_client()
-    messages = [
-        {"role": "system", "content": instruction_prompt or ""},
-        {"role": "user", "content": query}
-    ]
+    messages = [{"role": "system", "content": instruction_prompt or ""}]
+
+    if chat_history:
+        messages.extend(chat_history)
+
+    messages.append({"role": "user", "content": query})
 
     response = client.chat.completions.create(
         model=model,

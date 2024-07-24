@@ -30,7 +30,6 @@ def process_with_llm(query: str, context: dict) -> str:
     xml_buffer = ""
     state = {
         'buffer': '',
-        'in_step': False,
         'sql_queue': Queue(),
         'db_result': None
     }

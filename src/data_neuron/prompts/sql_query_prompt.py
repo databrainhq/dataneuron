@@ -38,6 +38,13 @@ def sql_query_prompt(query, context):
     3. The SQL query to answer the user's question.
     4. Any caveats or limitations of the generated SQL query.
 
+    SQL query guidelines:
+    - Use actual columns and tables to query. Never use alias to query the column.
+        example:
+            context: users.id with alias uid
+            correct: SELECT id as uid .. 
+            incorrect: SELECT uid
+
     Please format your response as an XML as follows:
 
     example:

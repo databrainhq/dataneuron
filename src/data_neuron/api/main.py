@@ -14,9 +14,9 @@ def get_api_functions():
         raise ValueError(f"Unsupported LLM type: {llm_type}")
 
 
-def stream_neuron_api(query, instruction_prompt=None):
+def stream_neuron_api(query, chat_history=None, instruction_prompt=None):
     _, _, stream_response = get_api_functions()
-    return stream_response(query, instruction_prompt)
+    return stream_response(query, chat_history, instruction_prompt)
 
 
 def call_neuron_api(query, include_context=False, instruction_prompt=None):

@@ -2,14 +2,16 @@ import os
 import click
 from .table_operations import get_table_list, choose_tables, generate_yaml_for_table
 from .yaml_generator import generate_definitions_and_relationships
-from ..utils.print import print_header, print_info, print_success, print_warning
+from ..utils.print import print_header, print_info, print_success, print_warning, print_prompt
 
 
 def init_context():
     print_header("Initializing context for your database..")
 
     print_warning(
-        "This will create a folder context in the current directory.")
+        "This will create a folder context in the current directory. And override if there is an existing one")
+
+    print_prompt("You can edit it anytime...")
 
     print_info("🗄️ Fetching tables from the database")
     all_tables = get_table_list()

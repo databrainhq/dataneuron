@@ -1,4 +1,5 @@
 from ..query_executor import execute_query
+from ..db_operations.factory import DatabaseFactory
 import click
 from ..utils.print import print_success, print_info
 
@@ -12,7 +13,9 @@ def db_query_worker(sql_queue, state):
         if sql is None:  # Exit signal
             break
         try:
-            result = execute_query(sql)
+            db = DatabaseFactory.get_database()
+            result = db.execute_query(sql)
+            state['sql_query'] = sql
             state['db_result'] = result
             print_success("\nQuery executed successfully!")
             click.echo(click.style("Result:", fg="green", bold=True))

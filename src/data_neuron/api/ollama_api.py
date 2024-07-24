@@ -1,5 +1,5 @@
 import requests
-from typing import Dict, Any, Generator, Optional
+from typing import Dict, Any, Generator, Optional, List
 import json
 
 OLLAMA_ENDPOINT = "http://localhost:11434/api"
@@ -23,22 +23,30 @@ def call_ollama_api(model: str, prompt: str, system_prompt: str = "") -> str:
     return response.json()["response"]
 
 
-def stream_ollama_response(model: str, prompt: str, system_prompt: str = "") -> Generator[str, None, None]:
+def stream_ollama_response(model: str, prompt: str, chat_history: Optional[List[dict]] = None, system_prompt: str = "") -> Generator[str, None, None]:
+    messages = []
+
+    if chat_history:
+        messages.extend(chat_history)
+
+    messages.append({"role": "user", "content": prompt})
+
     data = {
         "model": model,
-        "prompt": prompt,
+        "messages": messages,
         "system": system_prompt,
         "stream": True
     }
+
     response = requests.post(
-        f"{OLLAMA_ENDPOINT}/generate", json=data, stream=True)
+        f"{OLLAMA_ENDPOINT}/chat", json=data, stream=True)
     response.raise_for_status()
 
     for line in response.iter_lines():
         if line:
             chunk = json.loads(line)
-            if chunk.get("response"):
-                yield chunk["response"]
+            if chunk.get("message", {}).get("content"):
+                yield chunk["message"]["content"]
 
 
 def call_ollama_api_with_pagination(query: str, model: str, include_context: bool = False, instruction_prompt: Optional[str] = None) -> str:

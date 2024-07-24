@@ -123,21 +123,22 @@ def call_claude_vision_api_with_pagination(query: str, image_path: str, include_
     return parse_response(full_response)
 
 
-def stream_claude_response(query: str, instruction_prompt: Optional[str] = None) -> Generator[str, None, None]:
+def stream_claude_response(query: str, chat_history: Optional[list] = None, instruction_prompt: Optional[str] = None) -> Generator[str, None, None]:
     api_key = get_api_key()
     headers = get_headers(api_key)
     headers['Accept'] = 'text/event-stream'
 
+    messages = chat_history or []
+    messages.append({'role': 'user', 'content': query})
+
     data = {
         'model': MODEL,
         'system': instruction_prompt or "",
-        'messages': [{'role': 'user', 'content': query}],
+        'messages': messages,
         'max_tokens': MAX_TOKENS,
         'stream': True
     }
-
     response = make_api_call(data, headers, stream=True)
-
     for line in response.iter_lines():
         if line:
             line = line.decode('utf-8')
