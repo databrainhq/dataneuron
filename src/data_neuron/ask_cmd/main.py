@@ -13,10 +13,6 @@ from ..utils.print import print_header, print_prompt, print_info, print_success,
 def query(ask):
 
     print_header("DATA neuron is thinking..")
-    if not os.path.exists('database/sqlite.db') or not os.path.exists('context'):
-        click.echo(
-            "Error: Make sure you're in the correct directory with 'database/sqlite.db' and 'context' folder.")
-        return
 
     print_info("🗄️ Fetching the context from your context folder")
     # Load context

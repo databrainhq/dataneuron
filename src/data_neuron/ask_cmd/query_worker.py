@@ -2,6 +2,9 @@ from ..query_executor import execute_query
 import click
 from ..utils.print import print_success, print_info
 
+# to parallely query the db as the stream from llm is happening
+# once <sql>..</sql> tag is processed the sq_queue will be updated.
+
 
 def db_query_worker(sql_queue, state):
     while True:
