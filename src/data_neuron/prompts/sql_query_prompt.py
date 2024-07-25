@@ -47,7 +47,7 @@ def get_db_rules(db):
         - If identifiers, including schema names, table names, and column names, contain spaces, DO NOT add underscore but should be enclosed in backticks (`).
         - Queries should consist of clauses (WITH, SELECT, FROM, WHERE, GROUP BY, HAVING, ORDER BY) in a specific order.
         - JOIN operations require aliases and should be written with explicit JOIN types (INNER JOIN, LEFT JOIN, etc.).
-        - In SELECT statements, refrain from including schema names with table names; however, in the FROM section, ensure to use schema names along with table names. Identifiers should be specified with parent notation, e.g., `schema`.`table` as `table_alias`, `table_alias`.`column_name` as `column_alias`. 
+        - In SELECT statements, refrain from including schema names with table names; however, in the FROM section, ensure to use schema names along with table names. Identifiers should be specified with parent notation, e.g., `schema`.`table` as `table_alias`, `table_alias`.`column_name` as `column_alias`.
             e.g.: select `table_alias`.`column_name` as `column_alias` from `schema_name`.`table_name` as `table_alias`.
         - Sql Query should use aliases in lower case. Use appropriate aliases for columns, tables, joins, sub queries and CTEs with the "AS" keyword. Alias should be enclosed in in backticks (`).
         """
@@ -92,11 +92,11 @@ def sql_query_prompt(query, context):
 
     prompt = f"""
     {context_prompt}
-    
+
     The Query: "{query}"
-    
+
     Based on the given database context and the given query, please provide:
-    
+
     1. A very short explanation of your reasoning process, including:
        - How you interpreted the user's question
        - Which tables and columns you chose to use and why
@@ -113,38 +113,39 @@ def sql_query_prompt(query, context):
     - Use actual columns and tables to query. Never use alias to query the column.
         example:
             context: users.id with alias uid
-            correct: SELECT id as uid .. 
+            correct: SELECT id as uid ..
             incorrect: SELECT uid
     - Based on the query, formulate an SQL query targeting the database: "{db}".
-    - Follow best practices for SQL query construction, including proper syntax formatting, and strictly adhere to the SQL rules provided below: 
+    - Follow best practices for SQL query construction, including proper syntax formatting, and strictly adhere to the SQL rules provided below:
         {get_db_rules(db)}
         - Ensure to apply appropriate filters based on the column type, and if necessary, cast the column to the correct data type for accurate querying.
         - Prefer to use appropriate date functions to filter date columns instead of static date filters. If necessary, cast the column to date to ensure accurate filtering.
         - If you encounter any JSON format column, use appropriate functions({get_json_extract_functions(db)}) for JSON extraction based on the database.
         - Current Date: {datetime.datetime.now().strftime('%Y-%m-%d')}
-        - Available Date SQL Functions(Only use date functions from the provided list): 
+        - Available Date SQL Functions(Only use date functions from the provided list):
             {get_date_functions(db)}
-            
+
     Please format your response as an XML as follows:
 
     example:
 
+
+
     <response>
-        <sql> The generated SQL query </sql>
-        <explanation> Your explanation </explanation>
+        <sql> SELECT COUNT(id) FROM users </sql>
+        <explanation>
+            Counts the total number of users in the users table.
+        </explanation>
         <references>
-        Referenced Elements:
-        - Tables: users, orders
-        - Columns: users.name, orders.id
-        - Definitions: ..
+            Tables: users
+            Columns: users.id
         </references>
         <note>
-        Any caveats or limitations of the query
+            Assumes the users table has a unique id for each user.
         </note>
     </response>
 
-
-    Stricy answer with only XML response as it will be parsed as xml, no other extra words.
+    Follow the XML format strictly. Answer with only XML response as it will be parsed as xml, no other extra words or formatting.
     """
 
     return prompt
