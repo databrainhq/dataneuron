@@ -2,17 +2,22 @@ from ..query_executor import execute_query
 from ..db_operations.factory import DatabaseFactory
 import click
 from ..utils.print import print_success, print_info
+from ..sql_validator import sanitize_sql_query
+
 
 # to parallely query the db as the stream from llm is happening
 # once <sql>..</sql> tag is processed the sq_queue will be updated.
 
 
 def db_query_worker(sql_queue, state):
+    context = state['context']
     while True:
         sql = sql_queue.get()
         if sql is None:  # Exit signal
             break
         try:
+            # sanitized_sql = sanitize_sql_query(sql, context)
+            # print("Sanitsed", sanitized_sql)
             db = DatabaseFactory.get_database()
             result = db.execute_query(sql)
             state['sql_query'] = sql

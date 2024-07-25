@@ -16,6 +16,7 @@ colorama = "^0.4.6"
 psycopg2-binary = { version = "^2.9.0", optional = true }
 mysql-connector-python = { version = "^8.0.0", optional = true }
 pyodbc = { version = "^4.0.0", optional = true }
+sqlparse = "^0.5.1"
 
 [tool.poetry.extras]
 sqlite = [] 

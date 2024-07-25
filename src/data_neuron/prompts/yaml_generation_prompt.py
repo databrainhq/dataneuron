@@ -15,7 +15,8 @@ columns:
     primary_key: <true/false>
     nullable: <true/false>
 
-Ensure all fields are filled and accurate. Provide only the YAML content without additional explanations."""
+Fill the section whatever you can fill. You can assume and fill the ones that you're not sure.
+Provide only the YAML content without additional explanations."""
 
 
 def definitions_relationships_prompt(tables):
@@ -28,6 +29,8 @@ def definitions_relationships_prompt(tables):
      - common_terms: domain-specific terms or some some sample.
         - term: "term"
         - definition: "..."
+  
+  Definitions yml should only have the keys as given in the examples, nothing extra
    
 2. relationships.yaml:
    For each pair of related tables, specify:
@@ -37,4 +40,5 @@ def definitions_relationships_prompt(tables):
    - foreign key details
    - reference key details
 
+Fill the section whatever you can fill. You can assume and fill the ones that you're not sure.
 Provide only the YAML content for both files, separated by '---' on a new line."""

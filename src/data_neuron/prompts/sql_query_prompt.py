@@ -39,6 +39,9 @@ def sql_query_prompt(query, context):
     4. Any caveats or limitations of the generated SQL query.
 
     SQL query guidelines:
+    - Only generate SELECT statements, non-write, non-destructive queries.
+    - Only reference tables, coilumns given in the context.
+    - Use the provided aliases and global definitions to interpret the user's query accurately.
     - Use actual columns and tables to query. Never use alias to query the column.
         example:
             context: users.id with alias uid
@@ -63,7 +66,6 @@ def sql_query_prompt(query, context):
         </note>
     </response>
 
-    Remember to use the provided aliases and global definitions to interpret the user's query accurately.
 
     Stricy answer with only XML response as it will be parsed as xml, no other extra words.
     """

@@ -4,8 +4,7 @@ import threading
 from queue import Queue
 from .query_worker import db_query_worker
 from ..api.main import stream_neuron_api
-import click
-import os
+from ..query_refiner import process_query
 from ..context_loader import load_context
 from ..utils.print import print_header, print_prompt, print_info, print_success, print_info_secondary, create_box
 
@@ -20,8 +19,10 @@ def query(ask):
 
     print_success("Context is loaded!\n")
 
+    print_info("Rephrasing the question suited for db")
+    changed_query = process_query(ask)
     print_prompt("🤖 Sending request to LLM\n")
-    process_with_llm(ask, context)
+    process_with_llm(changed_query, context)
 
 
 def process_with_llm(query: str, context: dict) -> str:
@@ -31,7 +32,8 @@ def process_with_llm(query: str, context: dict) -> str:
     state = {
         'buffer': '',
         'sql_queue': Queue(),
-        'db_result': None
+        'db_result': None,
+        'context': context
     }
 
     # Start a thread for database querying
