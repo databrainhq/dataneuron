@@ -1,4 +1,4 @@
-# Data Neuron
+# Data Neuron 
 
 Data Neuron is a powerful AI-driven data framework to create and maintain AI DATA analyst.
 
@@ -7,15 +7,20 @@ A small framework, Data Neuron is optimized for working with subsets of database
 Data Neuron's objective is to give an ability to maintain and improve the semantic layer/knowledge graph,
 there by letting an AI agent with general intelligence to be Data Intelligent specific to your data.
 
+https://github.com/user-attachments/assets/ab4d0b69-2ecd-432a-9a2d-b50520325df4
+
+### The framework:
+<img width="621" alt="Screenshot 2024-07-25 at 11 30 35 PM" src="https://github.com/user-attachments/assets/09353e34-a0f7-4650-b477-746eaf10c354">
+
 ## Features
 
 - Support for multiple database types (SQLite, PostgreSQL, MySQL, MSSQL)
-- Natural language to SQL query conversion
+- Accurate natural language to SQL query conversion based on your semantic(context) layer and SQL execution
 - Interactive chat mode for continuous database querying
 - Automatic context generation from database schema
 - Customizable context for improved query accuracy
 - Support for various LLM providers (Claude, OpenAI, Azure, Custom, Ollama)
-- Optimized for smaller database subsets (up to 10 tables)
+- Optimized for smaller database subsets (up to 10-15 tables)
 
 ## Installation
 
@@ -141,6 +146,17 @@ DATA_NEURON_LLM_MODEL=your_preferred_local_model_here
 - Ask a question: `dnn --ask "Your question here"`
 - Start chat mode: `dnn --chat`
 
+## Video Examples
+
+### Quick start with SQLITE
+
+To start with sqlite you can just do `pip install dataneuron`, you don't need any dependencies.
+
+
+https://github.com/user-attachments/assets/29199b15-b39c-4917-9f8b-9bb6909ac66a
+
+
+
 ## Roadmap
 
 We have exciting plans for the future of Data Neuron:
@@ -226,3 +242,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 For questions, suggestions, or issues, please open an issue on the GitHub repository or contact the maintainers directly.
 
 Happy querying with Data Neuron!
+
+![neuron](https://github.com/user-attachments/assets/c48dbaf0-3ec9-4298-a3d0-af1c08bdb3be)
