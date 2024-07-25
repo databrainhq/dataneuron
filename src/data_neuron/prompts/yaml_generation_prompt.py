@@ -5,6 +5,7 @@ def table_yaml_prompt(table_info):
 
 Follow this structure:
 table_name: <name>
+schema_name: <name>
 description: <brief description>
 alias: <short alias>
 columns:
