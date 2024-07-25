@@ -29,11 +29,21 @@ class SQLiteOperations:
                 ]
             }
 
+    def execute_query_with_column_names(self, query):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(query)
+            column_names = [description[0]
+                            for description in cursor.description]
+            results = cursor.fetchall()
+            return results, column_names
+
     def execute_query(self, query):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(query)
-            return cursor.fetchall()
+            results = cursor.fetchall()
+            return results
 
     def get_schema_info(self) -> str:
         try:

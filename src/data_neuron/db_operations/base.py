@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import List, Tuple
 
 
 class DatabaseOperations(ABC):
@@ -16,6 +17,10 @@ class DatabaseOperations(ABC):
 
     @abstractmethod
     def get_schema_info(self) -> str:
+        pass
+
+    @abstractmethod
+    def execute_query_with_column_names(self, query: str) -> Tuple[List[Tuple], List[str]]:
         pass
 
     def handle_error(self, operation: str, error: Exception) -> str:

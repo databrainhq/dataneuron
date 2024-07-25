@@ -1,5 +1,6 @@
 from .base import DatabaseOperations
 from .exceptions import ConnectionError, OperationError
+from typing import List, Tuple
 
 
 class MSSQLOperations(DatabaseOperations):
@@ -70,6 +71,17 @@ class MSSQLOperations(DatabaseOperations):
                     }
         except Exception as e:
             raise OperationError(f"Failed to get table info: {str(e)}")
+
+    def execute_query_with_column_names(self, query: str) -> Tuple[List[Tuple], List[str]]:
+        try:
+            with self._get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(query)
+                    results = cursor.fetchall()
+                    column_names = [column[0] for column in cursor.description]
+                    return results, column_names
+        except Exception as e:
+            raise OperationError(f"Failed to execute query: {str(e)}") from e
 
     def execute_query(self, query: str) -> str:
         try:

@@ -1,12 +1,9 @@
 from ..query_executor import execute_query
 from ..db_operations.factory import DatabaseFactory
 import click
-from ..utils.print import print_success, print_info
+from ..utils.print import print_success, print_info, create_box
 from ..sql_validator import sanitize_sql_query
-
-
-# to parallely query the db as the stream from llm is happening
-# once <sql>..</sql> tag is processed the sq_queue will be updated.
+from tabulate import tabulate
 
 
 def db_query_worker(sql_queue, state):
@@ -16,14 +13,27 @@ def db_query_worker(sql_queue, state):
         if sql is None:  # Exit signal
             break
         try:
-            # sanitized_sql = sanitize_sql_query(sql, context)
-            # print("Sanitsed", sanitized_sql)
             db = DatabaseFactory.get_database()
-            result = db.execute_query(sql)
+            result, column_names = db.execute_query_with_column_names(sql)
             state['sql_query'] = sql
             state['db_result'] = result
             print_success("\nQuery executed successfully!")
-            click.echo(click.style("Result:", fg="green", bold=True))
-            click.echo(result)
+            print_formatted_result(result, column_names)
         except Exception as e:
             print_info(f"\nError executing query: {str(e)}")
+
+
+def print_formatted_result(result, column_names):
+    if not result:
+        print_info("No results found.")
+        return
+
+    if len(result) == 1 and len(result[0]) == 1:
+        # Single value result
+        value = result[0][0]
+        box = create_box("Query Result", f"{column_names[0]}: {value}", "")
+        click.echo(box)
+    else:
+        # Multiple rows or columns
+        table = tabulate(result, headers=column_names, tablefmt="grid")
+        click.echo(table)

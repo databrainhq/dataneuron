@@ -1,4 +1,6 @@
 from .base import DatabaseOperations
+from .exceptions import OperationError
+from typing import List, Tuple
 
 
 class MySQLOperations(DatabaseOperations):
@@ -46,6 +48,17 @@ class MySQLOperations(DatabaseOperations):
                     }
         except Exception as e:
             return f"An error occurred: {str(e)}"
+
+    def execute_query_with_column_names(self, query: str) -> Tuple[List[Tuple], List[str]]:
+        try:
+            with self._get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(query)
+                    results = cursor.fetchall()
+                    column_names = [desc[0] for desc in cursor.description]
+                    return results, column_names
+        except Exception as e:
+            raise OperationError(f"Failed to execute query: {str(e)}") from e
 
     def execute_query(self, query: str) -> str:
         try:

@@ -134,7 +134,6 @@ class LLMQueryRefiner:
         Please provide your response in this JSON structure. Strictly json no other words.
         """
 
-        print_info("going to make a reqeust")
         response = call_neuron_api(prompt)
 
         try:
