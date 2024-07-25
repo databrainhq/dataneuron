@@ -200,7 +200,14 @@ To set up Data Neuron for development:
 2. Install dependencies using Poetry:
 
    ```
-   poetry install
+   poetry install --all-extras
+   ```
+
+   or
+
+   ```
+   poetry install  --extras postgres
+
    ```
 
 3. Run tests:

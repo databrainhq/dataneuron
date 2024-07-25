@@ -41,7 +41,8 @@ def load_context():
         if not db_config:
             raise ConfigurationError(
                 "No database configuration found in the YAML file.")
-        context['database'] = db_config
+        # careful this loads into context,
+        context['database'] = db_config.get('name')
     except yaml.YAMLError as e:
         raise ConfigurationError(f"Error parsing YAML configuration: {str(e)}")
     except Exception as e:

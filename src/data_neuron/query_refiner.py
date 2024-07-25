@@ -10,7 +10,7 @@ from .utils.print import print_info, print_prompt
 class LLMQueryRefiner:
     def __init__(self):
         self.context = load_context()
-        self.db_name = self.context['database'].get('name')
+        self.db_name = self.context['database']
         self.db = DatabaseFactory.get_database()
         self.db_helper = DatabaseHelper(self.db_name, self.db)
 
@@ -74,7 +74,7 @@ class LLMQueryRefiner:
         "{user_query}"
 
         Please refine this query to align it with the database structure. Your task is to:
-        1. Identify any terms that might correspond to table names, column names, or data values.
+        1. Identify any terms that might correspond to schema name, table names, column names, or data values.
         2. Replace any ambiguous or colloquial terms with their corresponding database terms.
         3. Resolve any multi-word phrases that might represent a single entity in the database.
         4. Provide a list of changes made to the original query.
@@ -94,6 +94,7 @@ class LLMQueryRefiner:
                 {{
                     "table": "table_name",
                     "column": "column_name",
+                    "schema": "schema_name",
                     "potential_value": "value to check"
                 }},
                 ...
@@ -115,7 +116,7 @@ class LLMQueryRefiner:
                 {{
                     "table": "users",
                     "column": "username",
-                    "schema": "public",
+                    "schema": "schemaname",
                     "potential_value": "doe"
                 }}
             ]

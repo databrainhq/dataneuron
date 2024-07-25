@@ -2,8 +2,8 @@ from typing import List
 
 
 class DatabaseHelper:
-    def __init__(self, database: str, db):
-        self.database = database
+    def __init__(self, database_name: str, db):
+        self.database = database_name
         self.db = db
 
     def quote_identifier(self, identifier: str) -> str:
@@ -44,26 +44,32 @@ def top_few_records(db_helper: DatabaseHelper, column_name: str, schema_name: st
     # Handle the asterisk separately
     if column_name == '*':
         select_clause = '*'
+        distinct_clause = ""
     else:
         quoted_column = db_helper.quote_identifier(column_name)
-        select_clause = f"DISTINCT {quoted_column}"
+        select_clause = quoted_column
+        distinct_clause = "DISTINCT" if db_helper.database == 'mssql' else "DISTINCT "
 
     where_clause = ""
     if potential_value:
-        where_clause = f"WHERE {db_helper.get_pattern_match_clause(quoted_column, potential_value)}"
+        if column_name == '*':
+            # When column is '*', we can't use it in the WHERE clause
+            # Instead, we'll search across all columns
+            where_clause = f"WHERE EXISTS (SELECT 1 FROM {quoted_table} FOR JSON PATH) WHERE JSON_VALUE(BulkColumn, '$.*') LIKE '%{potential_value}%'"
+        else:
+            where_clause = f"WHERE {db_helper.get_pattern_match_clause(quoted_column, potential_value)}"
 
     if db_helper.database == 'mssql':
         query = f"""
-        SELECT TOP {limit} {select_clause}
+        SELECT {distinct_clause} TOP {limit}  {select_clause}
         FROM {quoted_table}
         {where_clause}
         """
     else:  # postgres, mysql, and sqlite
         query = f"""
-        SELECT {select_clause}
+        SELECT {distinct_clause}{select_clause}
         FROM {quoted_table}
         {where_clause}
         LIMIT {limit}
         """
-
     return query.strip()

@@ -99,8 +99,7 @@ def get_sql_rules(db):
 
 
 def sql_query_prompt(query, context):
-    db_config = context["database"]
-    db = db_config.get("name")
+    db = context["database"]
     context_prompt = "Database Context:\n\n"
 
     # Format table information
