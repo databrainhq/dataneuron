@@ -8,12 +8,14 @@ from ..db_operations.error_handler import handle_database_errors
 
 @handle_database_errors
 def init_context():
-    print_header("Initializing context for your database..")
+    print_header("Setting up the context(semantic layer) for your database..")
 
     print_warning(
-        "This will create a folder context in the current directory. And override if there is an existing one")
+        "This will create a folder context in the current directory. And override if there is an existing file")
 
     print_prompt("You can edit it anytime...")
+
+    print_warning("Please choose a set of 10 or lesser tables..\n")
 
     print_info("🗄️ Fetching tables from the database")
     all_tables = get_table_list()

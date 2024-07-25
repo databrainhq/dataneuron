@@ -37,7 +37,6 @@ class LLMQueryRefiner:
             column_name = entity['column']
             potential_value = entity['potential_value']
 
-            # Construct a query to find partial matches
             query = f"""
             SELECT DISTINCT {column_name} FROM {table_name} 
             WHERE LOWER({column_name}) LIKE LOWER('%{potential_value}%')
@@ -80,6 +79,7 @@ class LLMQueryRefiner:
         4. Provide a list of changes made to the original query.
         5. Identify specific entities (column values) that need to be validated against the database.
         6. Use phrases like "containing", "starting with", or "ending with" for potential partial matches.
+        7. If there are no specific column values to validate, return an empty array for entities.
 
         Return your response in the following JSON format:
         {{
@@ -99,7 +99,7 @@ class LLMQueryRefiner:
             ]
         }}
 
-        Example:
+        Example 1:
         For the user query: "total orders bought by dOE"
         A possible response might be:
         {{
@@ -119,9 +119,22 @@ class LLMQueryRefiner:
             ]
         }}
 
+        Example 2:
+        For the user query: "users by org"
+        A possible response might be:
+        {{
+            "refined_query": "What are the users grouped by organization?",
+            "changes": [
+                "Clarified 'users by org' to 'users grouped by organization'",
+                "Assumed 'org' refers to the 'organization' column in the users table"
+            ],
+            "entities": []
+        }}
+
         Please provide your response in this JSON structure. Strictly json no other words.
         """
 
+        print_info("going to make a reqeust")
         response = call_neuron_api(prompt)
 
         try:
@@ -133,27 +146,26 @@ class LLMQueryRefiner:
             print("Error: Invalid response from LLM.")
             return user_query, [], [], []
 
-        # Validate and refine the entities
-        is_valid, refined_entities, invalid_entities = self.validate_and_refine_entities(
-            entities)
-
-        # Further refine the query based on the actual matches
-        if refined_entities:
-            refined_query = self.further_refine_query(
-                refined_query, refined_entities)
+        if entities:
+            # Only validate and refine if there are entities
+            is_valid, refined_entities, invalid_entities = self.validate_and_refine_entities(
+                entities)
+            if refined_entities:
+                refined_query = self.further_refine_query(
+                    refined_query, refined_entities)
+        else:
+            is_valid, refined_entities, invalid_entities = True, [], []
 
         return refined_query, changes, refined_entities, invalid_entities
 
     def further_refine_query(self, query: str, refined_entities: List[Dict]) -> str:
         for entity in refined_entities:
             if len(entity['matches']) == 1:
-                # If there's only one match, use it directly
                 query = query.replace(
                     f"with a {entity['column']} containing '{entity['original_value']}'",
                     f"with a {entity['column']} equal to '{entity['matches'][0]}'"
                 )
             elif len(entity['matches']) > 1:
-                # If there are multiple matches, use an IN clause
                 match_list = "', '".join(entity['matches'])
                 query = query.replace(
                     f"with a {entity['column']} containing '{entity['original_value']}'",
@@ -167,43 +179,36 @@ def process_query(user_query: str) -> str:
     refined_query, changes, refined_entities, invalid_entities = refiner.refine_query(
         user_query)
 
-    if invalid_entities:
-        print("Warning: The following terms were not found in the database:")
-        for entity in invalid_entities:
-            print(
-                f"- '{entity['potential_value']}' in {entity['table']}.{entity['column']}")
-        print("The original query will be used.")
-        return f"Original query: {user_query}"
-
     if changes:
         print("We've made the following adjustments to your query:")
         for change in changes:
             print(f"- {change}")
 
-        if refined_entities:
-            print("\nWe found the following matches in the database:")
-            for entity in refined_entities:
-                print(f"- In {entity['table']}.{entity['column']}:")
-                if len(entity['matches']) == 1:
-                    print(f"  * Exact match: {entity['matches'][0]}")
-                else:
-                    for match in entity['matches']:
-                        print(f"  * {match}")
+    if invalid_entities:
+        print("\nWarning: The following terms were not found in the database:")
+        for entity in invalid_entities:
+            print(
+                f"- '{entity['potential_value']}' in {entity['table']}.{entity['column']}")
+        print(
+            "The refined query will be used, but it may not produce the expected results.")
 
-        # if not user_confirms(changes):
-        #     return "Query refinement cancelled."
+    if refined_entities:
+        print("\nWe found the following matches in the database:")
+        for entity in refined_entities:
+            print(f"- In {entity['table']}.{entity['column']}:")
+            if len(entity['matches']) == 1:
+                print(f"  * Exact match: {entity['matches'][0]}")
+            else:
+                for match in entity['matches']:
+                    print(f"  * {match}")
 
     print_info(f"\nRefined query: {refined_query}\n")
 
     return f"Refined query: {refined_query}"
 
 
-# def user_confirms(changes: List[str]) -> bool:
-#     return input("Do you want to proceed with these changes? (y/n): ").lower().strip() == 'y'
-
-
 # Example usage
 if __name__ == "__main__":
-    user_query = "total orders bought by dOE"
+    user_query = "users by org"
     result = process_query(user_query)
     print(result)

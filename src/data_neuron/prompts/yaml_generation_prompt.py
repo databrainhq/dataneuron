@@ -17,7 +17,7 @@ columns:
     nullable: <true/false>
 
 Fill the section whatever you can fill. You can assume and fill the ones that you're not sure.
-Provide only the YAML content without additional explanations."""
+Provide only the YAML content without additional explanations or things like ```yaml just the content."""
 
 
 def definitions_relationships_prompt(tables):
@@ -42,4 +42,4 @@ def definitions_relationships_prompt(tables):
    - reference key details
 
 Fill the section whatever you can fill. You can assume and fill the ones that you're not sure.
-Provide only the YAML content for both files, separated by '---' on a new line."""
+Provide only the YAML content (no other things like ```yaml) for both files, separated by '---' on a new line."""
