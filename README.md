@@ -24,31 +24,37 @@ Data Neuron can be installed with different database support options:
 1. Base package (SQLite support only):
 
    ```
-   pip install data-neuron
+   pip install dataneuron
    ```
 
 2. With PostgreSQL support:
 
    ```
-   pip install data-neuron[postgres]
+   pip install dataneuron[postgres]
    ```
 
 3. With MySQL support:
 
    ```
-   pip install data-neuron[mysql]
+   pip install dataneuron[mysql]
    ```
 
 4. With MSSQL support:
 
    ```
-   pip install data-neuron[mssql]
+   pip install dataneuron[mssql]
    ```
 
 5. With all database supports:
    ```
-   pip install data-neuron[all]
+   pip install dataneuron[all]
    ```
+
+Note: if you use zsh, you might have to use quotes around the package name like
+
+```
+pip install "dataneuron[mysql]"
+```
 
 ## Quick Start
 
@@ -60,13 +66,16 @@ Data Neuron can be installed with different database support options:
 
    Replace `<database_type>` with sqlite, mysql, mssql, or postgres.
 
+   This will create a database.yaml that will be used by the framework to later connect with your db.
+
 2. Generate context from your database:
 
    ```
    dnn --init
    ```
 
-   This will create YAML files in the `context/` directory.
+   This will create YAML files in the `context/` directory which will be your semantic layer for your data.
+   You will be told to select couple of tables, so that it can be auto-labelled which you can edit later.
 
 3. Ask a question about your database:
 
