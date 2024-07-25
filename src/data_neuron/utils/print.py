@@ -59,7 +59,7 @@ def create_box(title="Confirmation", line1="", line2=""):
 
 
 def print_header(message):
-    click.echo(f"\n🧠{Fore.CYAN}{message}{Style.RESET_ALL}\n")
+    click.echo(f"\n🧠  {Fore.CYAN}{message}{Style.RESET_ALL}\n")
 
 
 def confirm_with_user(msg):

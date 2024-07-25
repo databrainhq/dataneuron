@@ -78,7 +78,7 @@ class LLMQueryRefiner:
         3. Resolve any multi-word phrases that might represent a single entity in the database.
         4. Provide a list of changes made to the original query.
         5. Identify specific entities (column values) that need to be validated against the database.
-        6. Use phrases like "containing", "starting with", or "ending with" for potential partial matches.
+        6. Use phrases like "containing", for potential matches.
         7. If there are no specific column values to validate, return an empty array for entities.
 
         Return your response in the following JSON format:
@@ -159,16 +159,17 @@ class LLMQueryRefiner:
 
     def further_refine_query(self, query: str, refined_entities: List[Dict]) -> str:
         for entity in refined_entities:
-            if len(entity['matches']) == 1:
+            matches_len = len(entity['matches'])
+            if matches_len == 1:
                 query = query.replace(
-                    f"with a {entity['column']} containing '{entity['original_value']}'",
-                    f"with a {entity['column']} equal to '{entity['matches'][0]}'"
+                    f"containing '{entity['original_value']}'",
+                    f"equal to '{entity['matches'][0]}'"
                 )
-            elif len(entity['matches']) > 1:
+            elif matches_len > 1 and len(entity['matches']) < 10:
                 match_list = "', '".join(entity['matches'])
                 query = query.replace(
-                    f"with a {entity['column']} containing '{entity['original_value']}'",
-                    f"with a {entity['column']} in ('{match_list}')"
+                    f"containing '{entity['original_value']}'",
+                    f"in ('{match_list}')"
                 )
         return query
 

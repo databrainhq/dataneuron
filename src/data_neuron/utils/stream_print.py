@@ -34,15 +34,6 @@ def process_simplified_xml(chunk, state):
         click.echo(references_content)
         state['buffer'] = state['buffer'][references_match.end():]
 
-    # Process note tag
-    note_match = re.search(r'<\s*note\s*>(.*?)<\s*/\s*note\s*>',
-                           state['buffer'], re.DOTALL | re.IGNORECASE)
-    if note_match:
-        note_content = note_match.group(1).strip()
-        click.echo(click.style("\nNote:", fg="cyan", bold=True))
-        click.echo(note_content)
-        state['buffer'] = state['buffer'][note_match.end():]
-
 
 def stream_and_print_simplified_xml(chunks):
     state = {'buffer': '', 'sql_queue': Queue()}

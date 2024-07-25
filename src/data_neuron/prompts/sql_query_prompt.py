@@ -34,35 +34,68 @@ def get_date_functions(db_name):
         return f"Apply the appropiate date function based on selected database."
 
 
-def get_db_rules(db):
-    if db.lower() in [
-        "postgres",
-        "mssql",
-        "sqlite"
-    ]:
-        """
-        - Keywords like SELECT, INSERT, UPDATE, DELETE, etc., are case-insensitive; conventionally written in uppercase for better readability.
-        - Strings in SQL should be denoted by single quotes. Special characters like the single quote ('), backslash (\), etc., within strings should be properly escaped.
-        - Identifiers, including schema names, table names, and column names, are not case-sensitive; however, backticks (`) are used for enclosing identifiers that contain special characters or are MySQL reserved keywords.
-        - If identifiers, including schema names, table names, and column names, contain spaces, DO NOT add underscore but should be enclosed in backticks (`).
-        - Queries should consist of clauses (WITH, SELECT, FROM, WHERE, GROUP BY, HAVING, ORDER BY) in a specific order.
-        - JOIN operations require aliases and should be written with explicit JOIN types (INNER JOIN, LEFT JOIN, etc.).
-        - In SELECT statements, refrain from including schema names with table names; however, in the FROM section, ensure to use schema names along with table names. Identifiers should be specified with parent notation, e.g., `schema`.`table` as `table_alias`, `table_alias`.`column_name` as `column_alias`.
-            e.g.: select `table_alias`.`column_name` as `column_alias` from `schema_name`.`table_name` as `table_alias`.
-        - Sql Query should use aliases in lower case. Use appropriate aliases for columns, tables, joins, sub queries and CTEs with the "AS" keyword. Alias should be enclosed in in backticks (`).
-        """
+def get_sql_rules(db):
+    common_rules = """
+    - Keywords are case-insensitive but conventionally written in uppercase.
+    - Use single quotes for strings, escaping special characters properly.
+    - Specify required columns explicitly instead of using SELECT *.
+    - Use appropriate data types for comparisons and joins.
+    - For large datasets, use LIMIT (or TOP in MSSQL) with ORDER BY for pagination.
+    - Use EXISTS instead of IN for better performance when checking for related records.
+    - Utilize window functions (ROW_NUMBER(), RANK(), LAG(), LEAD()) for advanced analytics.
+    - Use IS NULL or IS NOT NULL for NULL value comparisons.
+    - Optimize subqueries: prefer correlated subqueries for row-by-row processing and non-correlated for set-based operations.
+    - Use CTEs for complex queries to improve query structure.
+    """
 
-    if db.lower() in ["mysql"]:
+    if db == "postgres":
+        return common_rules + """
+        - Identifiers are case-sensitive. Always enclose them in double quotes (").
+        - Schema usage: PostgreSQL uses schemas, with "public" as the default schema.
+          - If tables are in the public schema, you can omit the schema name.
+          - For tables in other schemas, always specify the schema: "schema_name"."table_name"
+        - Example: SELECT "table_alias"."column_name" AS "column_alias" FROM "schema_name"."table_name" AS "table_alias"
+        - Use LATERAL joins for more efficient correlated subqueries.
+        - Utilize GIN or GiST indexes for full-text search with tsvector and tsquery.
+        - For JSON operations, use json_extract_path_text() or jsonb_each_text().
+        - Use CURRENT_DATE, CURRENT_TIMESTAMP for current date and time.
         """
-        - Strings in SQL should be denoted by single quotes. Special characters like the single quote ('), backslash (\), etc., within strings should be properly escaped.
-        - Identifiers, including schema names, table names, and column names, should be enclosed in double quotes.
-        - if identifiers, including schema names, table names, and column names, contain spaces, DO NOT add underscore but should be enclosed in double quotes.
-        - Queries should consist of clauses (WITH, SELECT, FROM, WHERE, GROUP BY, HAVING, ORDER BY) in a specific order.
-        - JOIN operations require aliases and should be written with explicit JOIN types (INNER JOIN, LEFT JOIN, etc.).
-        - In SELECT statements, refrain from including schema names with table names; however, in the FROM section, ensure to use schema names along with table names. Identifiers should be specified with parent notation, e.g., "schema"."table" as "table_alias", "table_alias"."column_name" as "column_alias".
-            e.g.: select "table_alias"."column_name" as "column_alias" from "schema_name"."table_name" as "table_alias".
-        - Sql Query should use aliases in lower case. Use appropriate aliases for columns, tables, joins, sub queries and CTEs with the "AS" keyword. Alias should be enclosed in double quotes.
+    elif db == "mysql":
+        return common_rules + """
+        - Identifiers are case-sensitive on Unix systems. Enclose them in backticks (`) if they contain spaces, special characters, or are reserved keywords.
+        - Schema usage: In MySQL, each database is its own schema.
+          - Do not use schema names like 'public' before table names.
+          - If you need to specify a database, use: `database_name`.`table_name`
+        - Example: SELECT `table_alias`.`column_name` AS `column_alias` FROM `table_name` AS `table_alias`
+        - Use STRAIGHT_JOIN when you need to override the optimizer's join order.
+        - For full-text search, use MATCH ... AGAINST with appropriate full-text indexes.
+        - For JSON operations, use JSON_EXTRACT() and JSON_UNQUOTE().
+        - Use CURDATE(), NOW(), or CURRENT_TIMESTAMP() for current date and time.
         """
+    elif db == "mssql":
+        return common_rules + """
+        - Identifiers are case-insensitive. Always enclose them in square brackets ([]).
+        - Schema usage: SQL Server uses schemas, with "dbo" as the default schema.
+          - If tables are in the dbo schema, you can omit the schema name.
+          - For tables in other schemas, always specify the schema: [schema_name].[table_name]
+        - Example: SELECT [table_alias].[column_name] AS [column_alias] FROM [schema_name].[table_name] AS [table_alias]
+        - Use CROSS APPLY and OUTER APPLY for more flexible join operations.
+        - For JSON operations, use JSON_VALUE() and JSON_QUERY().
+        - Use GETDATE() or CURRENT_TIMESTAMP for current date and time.
+        """
+    elif db == "sqlite":
+        return common_rules + """
+        - Identifiers are case-sensitive. Always enclose them in double quotes (") or square brackets ([]).
+        - Schema usage: SQLite doesn't use schemas in the same way as other databases.
+          - Each database is a single file and doesn't have separate schemas.
+          - Do not use schema names before table names.
+        - Example: SELECT "table_alias"."column_name" AS "column_alias" FROM "table_name" AS "table_alias"
+        - Use SQLite-specific pragmas for performance tuning (e.g., PRAGMA cache_size, PRAGMA journal_mode).
+        - Use the SQLite-specific json_extract() function for JSON operations.
+        - Use date('now') or datetime('now') for current date and time.
+        """
+    else:
+        return "Database type not recognized. Please specify 'postgres', 'mysql', 'mssql', or 'sqlite'."
 
 
 def sql_query_prompt(query, context):
@@ -100,11 +133,10 @@ def sql_query_prompt(query, context):
     1. A very short explanation of your reasoning process, including:
        - How you interpreted the user's question
        - Which tables and columns you chose to use and why
-       - Any assumptions you made
+       - Any assumptions you made or caveats.
        - Any potential ambiguities in the query and how you resolved them
     2. A list of the specific tables, columns, and definitions you referenced from the provided context.
     3. The SQL query to answer the user's question.
-    4. Any caveats or limitations of the generated SQL query.
 
     SQL query guidelines:
     - Only generate SELECT statements, non-write, non-destructive queries.
@@ -117,19 +149,23 @@ def sql_query_prompt(query, context):
             incorrect: SELECT uid
     - Based on the query, formulate an SQL query targeting the database: "{db}".
     - Follow best practices for SQL query construction, including proper syntax formatting, and strictly adhere to the SQL rules provided below:
-        {get_db_rules(db)}
+        {get_sql_rules(db)}
         - Ensure to apply appropriate filters based on the column type, and if necessary, cast the column to the correct data type for accurate querying.
         - Prefer to use appropriate date functions to filter date columns instead of static date filters. If necessary, cast the column to date to ensure accurate filtering.
         - If you encounter any JSON format column, use appropriate functions({get_json_extract_functions(db)}) for JSON extraction based on the database.
         - Current Date: {datetime.datetime.now().strftime('%Y-%m-%d')}
         - Available Date SQL Functions(Only use date functions from the provided list):
             {get_date_functions(db)}
+        -  When addressing questions that suggest the utilization of a date column with a specific time granularity, adhere to the following steps:
+            - Utilize the appropriate function({get_date_format_functions(db)}) to format the date column according to the granularity specified:
+            • For years, display them in the YYYY format.
+            • For quarters, represent them as Q1 YYYY, Q2 YYYY, Q3 YYYY, or Q4 YYYY.
+            • For months, use the abbreviated month names with year (e.g., Jan - YYYY, Feb - YYYY, ..., Dec - YYYY).
+            • For weeks, truncate the dates to a weekly basis.
 
     Please format your response as an XML as follows:
 
     example:
-
-
 
     <response>
         <sql> SELECT COUNT(id) FROM users </sql>
@@ -140,9 +176,6 @@ def sql_query_prompt(query, context):
             Tables: users
             Columns: users.id
         </references>
-        <note>
-            Assumes the users table has a unique id for each user.
-        </note>
     </response>
 
     Follow the XML format strictly. Answer with only XML response as it will be parsed as xml, no other extra words or formatting.
