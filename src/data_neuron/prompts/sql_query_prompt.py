@@ -22,8 +22,7 @@ def get_json_extract_functions(database):
         return "json extract function"
 
 
-def get_date_functions(db):
-    db_name = db.lower()
+def get_date_functions(db_name):
     if db_name in [
         "postgres",
     ]:
@@ -66,7 +65,10 @@ def get_db_rules(db):
         """
 
 
-def sql_query_prompt(query, context, db="sqlite"):
+def sql_query_prompt(query, context):
+    db_config = context["database"]
+    db = db_config.get("name")
+    print("db", db)
     context_prompt = "Database Context:\n\n"
 
     # Format table information
@@ -119,7 +121,7 @@ def sql_query_prompt(query, context, db="sqlite"):
         {get_db_rules(db)}
         - Ensure to apply appropriate filters based on the column type, and if necessary, cast the column to the correct data type for accurate querying.
         - Prefer to use appropriate date functions to filter date columns instead of static date filters. If necessary, cast the column to date to ensure accurate filtering.
-        - If you encounter any JSON format column, use appropriate functions({get_json_extract_functions(db=db)}) for JSON extraction based on the database.
+        - If you encounter any JSON format column, use appropriate functions({get_json_extract_functions(db)}) for JSON extraction based on the database.
         - Current Date: {datetime.datetime.now().strftime('%Y-%m-%d')}
         - Available Date SQL Functions(Only use date functions from the provided list): 
             {get_date_functions(db)}

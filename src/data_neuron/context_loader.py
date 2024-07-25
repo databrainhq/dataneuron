@@ -1,12 +1,16 @@
 import os
 import yaml
+from .db_operations.exceptions import ConfigurationError
+
+CONFIG_PATH = 'database.yaml'
 
 
 def load_context():
     context = {
         'tables': {},
         'relationships': {},
-        'global_definitions': {}
+        'global_definitions': {},
+        'database': {}
     }
 
     # Load table-specific context
@@ -24,5 +28,23 @@ def load_context():
     # Load global definitions
     with open(os.path.join('context', 'definitions.yaml'), 'r') as f:
         context['global_definitions'] = yaml.safe_load(f)
+
+    # Load database configuration
+    if not os.path.exists(CONFIG_PATH):
+        raise ConfigurationError(
+            f"Configuration file '{CONFIG_PATH}' not found. Please run the db-init command first.")
+
+    try:
+        with open(CONFIG_PATH, 'r') as file:
+            config = yaml.safe_load(file)
+        db_config = config.get('database', {})
+        if not db_config:
+            raise ConfigurationError(
+                "No database configuration found in the YAML file.")
+        context['database'] = db_config
+    except yaml.YAMLError as e:
+        raise ConfigurationError(f"Error parsing YAML configuration: {str(e)}")
+    except Exception as e:
+        raise ConfigurationError(f"Error loading configuration: {str(e)}")
 
     return context
