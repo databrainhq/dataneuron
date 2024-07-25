@@ -1,8 +1,9 @@
 [tool.poetry]
-name = "data-neuron"
+name = "dataneuron"
 version = "0.1.0"
-description = "A CLI tool for querying databases using natural language"
-authors = ["Your Name <you@example.com>"]
+description = "An AI Data framework to create AI Data Analyst"
+authors = ["Vysakh Sreenivasan <srvysakh@gmail.com>"]
+license = "MIT"
 readme = "README.md"
 packages = [{include = "data_neuron", from = "src"}]
 

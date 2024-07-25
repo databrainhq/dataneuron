@@ -1,35 +1,212 @@
-# data_neuron Installation Options
+# Data Neuron
 
-1. `pip install data_neuron` or `pip install data_neuron[]`:
+Data Neuron is a powerful AI-driven data framework to create and maintain AI DATA analyst.
 
-   - Installs the base package
-   - Includes SQLite support
-   - Does NOT include PostgreSQL, MySQL, or MSSQL support
+A small framework, Data Neuron is optimized for working with subsets of database, typically handling 10 to 15 tables.
 
-2. `pip install data_neuron[postgres]`:
+Data Neuron's objective is to give an ability to maintain and improve the semantic layer/knowledge graph,
+there by letting an AI agent with general intelligence to be Data Intelligent specific to your data.
 
-   - Installs the base package
-   - Includes SQLite support
-   - Adds PostgreSQL support
-   - Does NOT include MySQL or MSSQL support
+## Features
 
-3. `pip install data_neuron[mysql]`:
+- Support for multiple database types (SQLite, PostgreSQL, MySQL, MSSQL)
+- Natural language to SQL query conversion
+- Interactive chat mode for continuous database querying
+- Automatic context generation from database schema
+- Customizable context for improved query accuracy
+- Support for various LLM providers (Claude, OpenAI, Azure, Custom, Ollama)
+- Optimized for smaller database subsets (up to 10 tables)
 
-   - Installs the base package
-   - Includes SQLite support
-   - Adds MySQL support
-   - Does NOT include PostgreSQL or MSSQL support
+## Installation
 
-4. `pip install data_neuron[mssql]`:
+Data Neuron can be installed with different database support options:
 
-   - Installs the base package
-   - Includes SQLite support
-   - Adds MSSQL support
-   - Does NOT include PostgreSQL or MySQL support
+1. Base package (SQLite support only):
 
-5. `pip install data_neuron[all]`:
-   - Installs the base package
-   - Includes SQLite support
-   - Adds PostgreSQL, MySQL, and MSSQL support
+   ```
+   pip install data-neuron
+   ```
 
-Note: SQLite support is always included as it's part of Python's standard library.
+2. With PostgreSQL support:
+
+   ```
+   pip install data-neuron[postgres]
+   ```
+
+3. With MySQL support:
+
+   ```
+   pip install data-neuron[mysql]
+   ```
+
+4. With MSSQL support:
+
+   ```
+   pip install data-neuron[mssql]
+   ```
+
+5. With all database supports:
+   ```
+   pip install data-neuron[all]
+   ```
+
+## Quick Start
+
+1. Initialize database configuration:
+
+   ```
+   dnn --db-init <database_type>
+   ```
+
+   Replace `<database_type>` with sqlite, mysql, mssql, or postgres.
+
+2. Generate context from your database:
+
+   ```
+   dnn --init
+   ```
+
+   This will create YAML files in the `context/` directory.
+
+3. Ask a question about your database:
+
+   ```
+   dnn --ask "What is the total user count?"
+   ```
+
+4. Or start an interactive chat session:
+   ```
+   dnn --chat
+   ```
+
+## Configuration
+
+Data Neuron supports various LLM providers. Set the following environment variables based on your chosen provider:
+
+### Claude (Default)
+
+```
+CLAUDE_API_KEY=your_claude_api_key_here
+```
+
+### OpenAI
+
+```
+DATA_NEURON_LLM=openai
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-4  # Optional, defaults to gpt-4o
+```
+
+### Azure OpenAI
+
+```
+DATA_NEURON_LLM=azure
+AZURE_OPENAI_API_KEY=your_azure_api_key_here
+AZURE_OPENAI_API_VERSION=your_api_version_here
+AZURE_OPENAI_ENDPOINT=your_azure_endpoint_here
+AZURE_OPENAI_DEPLOYMENT_NAME=your_deployment_name_here
+```
+
+### Custom Provider
+
+```
+DATA_NEURON_LLM=custom
+DATA_NEURON_LLM_API_KEY=your_custom_api_key_here
+DATA_NEURON_LLM_ENDPOINT=your_custom_endpoint_here
+DATA_NEURON_LLM_MODEL=your_preferred_model_here
+```
+
+### Ollama (for local LLM models)
+
+Note: Doesn't generate good set of results.
+
+```
+DATA_NEURON_LLM=ollama
+DATA_NEURON_LLM_MODEL=your_preferred_local_model_here
+```
+
+## Usage
+
+- Initialize database config: `dnn --db-init <database_type>`
+- Generate context: `dnn --init`
+- Ask a question: `dnn --ask "Your question here"`
+- Start chat mode: `dnn --chat`
+
+## Roadmap
+
+We have exciting plans for the future of Data Neuron:
+
+1. Expanded Database Support:
+
+   - Add support for additional databases and data warehouses
+   - Integrate with popular cloud data platforms
+
+2. API Server Capability:
+
+   - Develop an API server mode to respond to queries based on context
+   - Enable seamless integration with other applications and services
+
+3. Context Marts:
+
+   - Implement the concept of context marts (e.g., marketing_context_mart, product_context_mart)
+   - Allow for more focused and efficient querying within specific domains
+
+4. Synthetic Query Generation:
+
+   - Create a system for generating synthetic queries
+   - Enhance testing and development processes
+
+5. Deterministic Testing:
+
+   - Develop a suite of deterministic tests for query accuracy
+   - Enable easy comparison and evaluation of different LLM models
+
+6. Continuous Improvement Framework:
+
+   - Implement mechanisms for ongoing learning and refinement of the AI model
+   - Incorporate user feedback to enhance query generation accuracy
+
+7. Scalability Enhancements:
+
+   - Optimize performance for larger datasets while maintaining focus on subset efficiency
+   - Explore distributed processing options for more complex queries
+
+8. An Agentic Analyst.
+
+## Contributing
+
+We welcome contributions to Data Neuron! Please see our [Contributing Guide](CONTRIBUTING.md) for more details on how to get started.
+
+## Development
+
+To set up Data Neuron for development:
+
+1. Clone the repository:
+
+   ```
+   git clone https://github.com/databrainhq/dataneuron.git
+   cd dataneuron
+   ```
+
+2. Install dependencies using Poetry:
+
+   ```
+   poetry install
+   ```
+
+3. Run tests:
+   ```
+   poetry run pytest
+   ```
+
+Note: Tests are still being added.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Contact
+
+For questions, suggestions, or issues, please open an issue on the GitHub repository or contact the maintainers directly.
+
+Happy querying with Data Neuron!
