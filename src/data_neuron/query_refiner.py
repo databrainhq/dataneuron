@@ -29,7 +29,37 @@ class LLMQueryRefiner:
                 sample_data += f"  {row}\n"
         return sample_data
 
-    def refine_query(self, user_query: str) -> Tuple[str, List[str]]:
+    def validate_and_refine_entities(self, entities: List[Dict]) -> Tuple[bool, List[Dict], List[Dict]]:
+        refined_entities = []
+        invalid_entities = []
+        for entity in entities:
+            table_name = entity['table']
+            column_name = entity['column']
+            potential_value = entity['potential_value']
+
+            # Construct a query to find partial matches
+            query = f"""
+            SELECT DISTINCT {column_name} FROM {table_name} 
+            WHERE LOWER({column_name}) LIKE LOWER('%{potential_value}%')
+            LIMIT 10
+            """
+
+            results = self.db.execute_query(query)
+            if results:
+                matches = [row[0] for row in results]
+                refined_entities.append({
+                    'table': table_name,
+                    'column': column_name,
+                    'original_value': potential_value,
+                    'matches': matches
+                })
+            else:
+                invalid_entities.append(entity)
+
+        is_valid = len(invalid_entities) == 0
+        return is_valid, refined_entities, invalid_entities
+
+    def refine_query(self, user_query: str) -> Tuple[str, List[str], List[Dict], List[Dict]]:
         schema_info = self.get_schema_info()
         sample_data = self.get_sample_data()
 
@@ -48,6 +78,8 @@ class LLMQueryRefiner:
         2. Replace any ambiguous or colloquial terms with their corresponding database terms.
         3. Resolve any multi-word phrases that might represent a single entity in the database.
         4. Provide a list of changes made to the original query.
+        5. Identify specific entities (column values) that need to be validated against the database.
+        6. Use phrases like "containing", "starting with", or "ending with" for potential partial matches.
 
         Return your response in the following JSON format:
         {{
@@ -56,20 +88,34 @@ class LLMQueryRefiner:
                 "Change 1",
                 "Change 2",
                 ...
+            ],
+            "entities": [
+                {{
+                    "table": "table_name",
+                    "column": "column_name",
+                    "potential_value": "value to check"
+                }},
+                ...
             ]
         }}
 
-        If no refinements are necessary, return the original query and an empty list of changes.
-
         Example:
-        For the user query: "What did john doe buy last week?"
+        For the user query: "total orders bought by dOE"
         A possible response might be:
         {{
-            "refined_query": "What products were purchased by the user with first_name 'John' and last_name 'Doe' in the past seven days?",
+            "refined_query": "What is the total number of orders placed by users with a username ending with 'doe'?",
             "changes": [
-                "Replaced 'john doe' with 'first_name 'John' and last_name 'Doe'' to match the users table structure",
-                "Replaced 'buy' with 'purchased' to align with likely column names",
-                "Replaced 'last week' with 'in the past seven days' for more precise time range"
+                "Replaced 'total orders' with 'total number of orders' for clarity",
+                "Replaced 'bought by' with 'placed by' to align with database terminology",
+                "Changed 'dOE' to 'users with a username ending with 'doe'' to allow for partial matches and case-insensitive search",
+                "Added 'username' to specify the column to search in"
+            ],
+            "entities": [
+                {{
+                    "table": "users",
+                    "column": "username",
+                    "potential_value": "%doe"
+                }}
             ]
         }}
 
@@ -82,26 +128,70 @@ class LLMQueryRefiner:
             parsed_response = json.loads(response)
             refined_query = parsed_response['refined_query']
             changes = parsed_response['changes']
-        except json.JSONDecodeError:
-            print("Error: LLM response was not in valid JSON format.")
-            return user_query, []
-        except KeyError:
-            print("Error: LLM response did not contain expected keys.")
-            return user_query, []
+            entities = parsed_response.get('entities', [])
+        except (json.JSONDecodeError, KeyError):
+            print("Error: Invalid response from LLM.")
+            return user_query, [], [], []
 
-        return refined_query, changes
+        # Validate and refine the entities
+        is_valid, refined_entities, invalid_entities = self.validate_and_refine_entities(
+            entities)
+
+        # Further refine the query based on the actual matches
+        if refined_entities:
+            refined_query = self.further_refine_query(
+                refined_query, refined_entities)
+
+        return refined_query, changes, refined_entities, invalid_entities
+
+    def further_refine_query(self, query: str, refined_entities: List[Dict]) -> str:
+        for entity in refined_entities:
+            if len(entity['matches']) == 1:
+                # If there's only one match, use it directly
+                query = query.replace(
+                    f"containing '{entity['original_value']}'", f"'{entity['matches'][0]}'")
+                query = query.replace(
+                    f"starting with '{entity['original_value']}'", f"'{entity['matches'][0]}'")
+                query = query.replace(
+                    f"ending with '{entity['original_value']}'", f"'{entity['matches'][0]}'")
+            elif len(entity['matches']) > 1:
+                # If there are multiple matches, use an IN clause
+                match_list = "', '".join(entity['matches'])
+                query = query.replace(
+                    f"containing '{entity['original_value']}'", f"in ('{match_list}')")
+                query = query.replace(
+                    f"starting with '{entity['original_value']}'", f"in ('{match_list}')")
+                query = query.replace(
+                    f"ending with '{entity['original_value']}'", f"in ('{match_list}')")
+        return query
 
 
 def process_query(user_query: str) -> str:
     refiner = LLMQueryRefiner()
-    refined_query, changes = refiner.refine_query(user_query)
+    refined_query, changes, refined_entities, invalid_entities = refiner.refine_query(
+        user_query)
+
+    print("Refined", refined_query)
+    if invalid_entities:
+        print("Warning: The following terms were not found in the database, results may not be accurate:")
+        for entity in invalid_entities:
+            print(
+                f"- '{entity['potential_value']}' in {entity['table']}.{entity['column']}")
+        print("The original query will be used.")
+        return f"Original query: {user_query}"
 
     if changes:
         print("We've made the following adjustments to your query:")
         for change in changes:
-            print_prompt(f"- {change}")
+            print(f"- {change}")
 
-        print_info(f"\nRefined query: {refined_query}\n")
+        if refined_entities:
+            print("\nWe found the following matches in the database:")
+            for entity in refined_entities:
+                print(f"- In {entity['table']}.{entity['column']}:")
+                for match in entity['matches']:
+                    print(f"  * {match}")
+
         if not user_confirms(changes):
             return "Query refinement cancelled."
 
@@ -114,6 +204,6 @@ def user_confirms(changes: List[str]) -> bool:
 
 # Example usage
 if __name__ == "__main__":
-    user_query = "What did john doe buy last week?"
+    user_query = "total orders bought by dOE"
     result = process_query(user_query)
     print(result)
