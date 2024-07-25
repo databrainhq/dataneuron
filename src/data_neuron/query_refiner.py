@@ -103,23 +103,23 @@ class LLMQueryRefiner:
         For the user query: "total orders bought by dOE"
         A possible response might be:
         {{
-            "refined_query": "What is the total number of orders placed by users with a username ending with 'doe'?",
+            "refined_query": "What is the total number of orders placed by users with a username containing 'doe'?",
             "changes": [
                 "Replaced 'total orders' with 'total number of orders' for clarity",
                 "Replaced 'bought by' with 'placed by' to align with database terminology",
-                "Changed 'dOE' to 'users with a username ending with 'doe'' to allow for partial matches and case-insensitive search",
+                "Changed 'dOE' to 'users with a username containing 'doe'' to allow for case-insensitive partial matches",
                 "Added 'username' to specify the column to search in"
             ],
             "entities": [
                 {{
                     "table": "users",
                     "column": "username",
-                    "potential_value": "%doe"
+                    "potential_value": "doe"
                 }}
             ]
         }}
 
-        Please provide your response in this JSON structure.
+        Please provide your response in this JSON structure. Strictly json no other words.
         """
 
         response = call_neuron_api(prompt)
@@ -149,20 +149,16 @@ class LLMQueryRefiner:
             if len(entity['matches']) == 1:
                 # If there's only one match, use it directly
                 query = query.replace(
-                    f"containing '{entity['original_value']}'", f"'{entity['matches'][0]}'")
-                query = query.replace(
-                    f"starting with '{entity['original_value']}'", f"'{entity['matches'][0]}'")
-                query = query.replace(
-                    f"ending with '{entity['original_value']}'", f"'{entity['matches'][0]}'")
+                    f"with a {entity['column']} containing '{entity['original_value']}'",
+                    f"with a {entity['column']} equal to '{entity['matches'][0]}'"
+                )
             elif len(entity['matches']) > 1:
                 # If there are multiple matches, use an IN clause
                 match_list = "', '".join(entity['matches'])
                 query = query.replace(
-                    f"containing '{entity['original_value']}'", f"in ('{match_list}')")
-                query = query.replace(
-                    f"starting with '{entity['original_value']}'", f"in ('{match_list}')")
-                query = query.replace(
-                    f"ending with '{entity['original_value']}'", f"in ('{match_list}')")
+                    f"with a {entity['column']} containing '{entity['original_value']}'",
+                    f"with a {entity['column']} in ('{match_list}')"
+                )
         return query
 
 
@@ -171,9 +167,8 @@ def process_query(user_query: str) -> str:
     refined_query, changes, refined_entities, invalid_entities = refiner.refine_query(
         user_query)
 
-    print("Refined", refined_query)
     if invalid_entities:
-        print("Warning: The following terms were not found in the database, results may not be accurate:")
+        print("Warning: The following terms were not found in the database:")
         for entity in invalid_entities:
             print(
                 f"- '{entity['potential_value']}' in {entity['table']}.{entity['column']}")
@@ -189,17 +184,22 @@ def process_query(user_query: str) -> str:
             print("\nWe found the following matches in the database:")
             for entity in refined_entities:
                 print(f"- In {entity['table']}.{entity['column']}:")
-                for match in entity['matches']:
-                    print(f"  * {match}")
+                if len(entity['matches']) == 1:
+                    print(f"  * Exact match: {entity['matches'][0]}")
+                else:
+                    for match in entity['matches']:
+                        print(f"  * {match}")
 
-        if not user_confirms(changes):
-            return "Query refinement cancelled."
+        # if not user_confirms(changes):
+        #     return "Query refinement cancelled."
+
+    print_info(f"\nRefined query: {refined_query}\n")
 
     return f"Refined query: {refined_query}"
 
 
-def user_confirms(changes: List[str]) -> bool:
-    return input("Do you want to proceed with these changes? (yes/no): ").lower().strip() == 'yes'
+# def user_confirms(changes: List[str]) -> bool:
+#     return input("Do you want to proceed with these changes? (y/n): ").lower().strip() == 'y'
 
 
 # Example usage
