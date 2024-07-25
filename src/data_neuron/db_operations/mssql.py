@@ -5,6 +5,8 @@ from typing import List, Tuple
 
 class MSSQLOperations(DatabaseOperations):
     def __init__(self, server: str, database: str, username: str, password: str):
+        super().__init__()
+        self.db_type = "mssql"
         self.conn_params = {
             "server": server,
             "database": database,

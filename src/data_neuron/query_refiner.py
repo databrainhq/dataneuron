@@ -3,13 +3,16 @@ from typing import Dict, Tuple, List
 from .context_loader import load_context
 from .api.main import call_neuron_api
 from .db_operations.factory import DatabaseFactory
+from .db_operations.database_helpers import DatabaseHelper, top_few_records
 from .utils.print import print_info, print_prompt
 
 
 class LLMQueryRefiner:
     def __init__(self):
         self.context = load_context()
+        self.db_name = self.context['database'].get('name')
         self.db = DatabaseFactory.get_database()
+        self.db_helper = DatabaseHelper(self.db_name, self.db)
 
     def get_schema_info(self) -> str:
         schema_info = "Database Schema:\n"
@@ -19,37 +22,24 @@ class LLMQueryRefiner:
                 schema_info += f"  - {column['name']} ({column['type']})\n"
         return schema_info
 
-    def get_sample_data(self) -> str:
-        sample_data = "Sample Data:\n"
-        for table_name in self.context['tables']:
-            query = f"SELECT * FROM {table_name} LIMIT 5"
-            result = self.db.execute_query(query)
-            sample_data += f"Table: {table_name}\n"
-            for row in result:
-                sample_data += f"  {row}\n"
-        return sample_data
-
     def validate_and_refine_entities(self, entities: List[Dict]) -> Tuple[bool, List[Dict], List[Dict]]:
         refined_entities = []
         invalid_entities = []
         for entity in entities:
-            table_name = entity['table']
-            column_name = entity['column']
-            potential_value = entity['potential_value']
-
-            query = f"""
-            SELECT DISTINCT {column_name} FROM {table_name} 
-            WHERE LOWER({column_name}) LIKE LOWER('%{potential_value}%')
-            LIMIT 10
-            """
-
-            results = self.db.execute_query(query)
+            query = top_few_records(
+                self.db_helper,
+                entity['column'],
+                entity['schema'],
+                entity['table'],
+                entity['potential_value']
+            )
+            results = self.db_helper.execute_query(query)
             if results:
                 matches = [row[0] for row in results]
                 refined_entities.append({
-                    'table': table_name,
-                    'column': column_name,
-                    'original_value': potential_value,
+                    'table': entity['table'],
+                    'column': entity['column'],
+                    'original_value': entity['potential_value'],
                     'matches': matches
                 })
             else:
@@ -57,6 +47,17 @@ class LLMQueryRefiner:
 
         is_valid = len(invalid_entities) == 0
         return is_valid, refined_entities, invalid_entities
+
+    def get_sample_data(self) -> str:
+        sample_data = "Sample Data:\n"
+        for table_name in self.context['tables']:
+            query = top_few_records(
+                self.db_helper, "*", "", table_name, limit=5)
+            result = self.db_helper.execute_query(query)
+            sample_data += f"Table: {table_name}\n"
+            for row in result:
+                sample_data += f"  {row}\n"
+        return sample_data
 
     def refine_query(self, user_query: str) -> Tuple[str, List[str], List[Dict], List[Dict]]:
         schema_info = self.get_schema_info()
@@ -114,6 +115,7 @@ class LLMQueryRefiner:
                 {{
                     "table": "users",
                     "column": "username",
+                    "schema": "public",
                     "potential_value": "doe"
                 }}
             ]

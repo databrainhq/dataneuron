@@ -3,6 +3,7 @@ import sqlite3
 
 class SQLiteOperations:
     def __init__(self, db_path):
+        self.db_type = "sqlite"
         self.db_path = db_path
 
     def get_table_list(self):

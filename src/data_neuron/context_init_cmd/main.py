@@ -18,7 +18,7 @@ def init_context():
     print_warning("Please choose a set of 10 or lesser tables..\n")
 
     print_info("🗄️ Fetching tables from the database")
-    all_tables = get_table_list()
+    db_type, all_tables = get_table_list()
     chosen_tables = choose_tables(all_tables)
 
     os.makedirs('context/tables', exist_ok=True)
@@ -32,7 +32,7 @@ def init_context():
 
     print_info("Generating definitions and relationships...")
     definitions_yaml, relationships_yaml = generate_definitions_and_relationships(
-        chosen_tables)
+        chosen_tables, db_type)
 
     with open('context/definitions.yaml', 'w') as f:
         f.write(definitions_yaml)

@@ -5,6 +5,8 @@ from typing import List, Tuple
 
 class MySQLOperations(DatabaseOperations):
     def __init__(self, host: str, user: str, password: str, database: str):
+        super().__init__()
+        self.db_type = "mysql"
         self.conn_params = {
             "host": host,
             "user": user,

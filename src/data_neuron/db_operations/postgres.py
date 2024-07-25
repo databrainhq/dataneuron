@@ -5,6 +5,8 @@ from typing import List, Tuple
 
 class PostgreSQLOperations(DatabaseOperations):
     def __init__(self, dbname: str, user: str, password: str, host: str, port: str):
+        super().__init__()
+        self.db_type = "postgres"
         self.conn_params = {
             "dbname": dbname,
             "user": user,

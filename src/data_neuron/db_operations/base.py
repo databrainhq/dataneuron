@@ -3,6 +3,9 @@ from typing import List, Tuple
 
 
 class DatabaseOperations(ABC):
+    def __init__(self):
+        self.db_type = None
+
     @abstractmethod
     def get_table_list(self):
         pass

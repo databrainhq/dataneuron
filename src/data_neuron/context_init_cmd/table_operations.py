@@ -5,7 +5,7 @@ from ..db_operations.factory import DatabaseFactory
 
 def get_table_list():
     db = DatabaseFactory.get_database()
-    return db.get_table_list()
+    return db.db_type, db.get_table_list()
 
 
 def choose_tables(all_tables):
@@ -37,7 +37,7 @@ def generate_yaml_for_table(table_name):
     from ..prompts.yaml_generation_prompt import table_yaml_prompt
     from ..api.main import stream_neuron_api
 
-    prompt = table_yaml_prompt(table_info)
+    prompt = table_yaml_prompt(table_info, db.db_type)
     system_prompt = "You are a helpful assistant that generates YAML content based on database table information."
 
     yaml_content = ""

@@ -12,12 +12,13 @@ class DatabaseFactory:
         try:
             db_config = DatabaseFactory.load_config()
             db_type = db_config.get('name')
+            db = None
 
             if db_type == 'sqlite':
-                return SQLiteOperations(db_config.get('db_path'))
+                db = SQLiteOperations(db_config.get('db_path'))
             elif db_type == 'postgres':
                 from .postgres import PostgreSQLOperations
-                return PostgreSQLOperations(
+                db = PostgreSQLOperations(
                     dbname=db_config.get('dbname'),
                     user=db_config.get('user'),
                     password=db_config.get('password'),
@@ -26,7 +27,7 @@ class DatabaseFactory:
                 )
             elif db_type == 'mysql':
                 from .mysql import MySQLOperations
-                return MySQLOperations(
+                db = MySQLOperations(
                     host=db_config.get('host'),
                     user=db_config.get('user'),
                     password=db_config.get('password'),
@@ -34,7 +35,7 @@ class DatabaseFactory:
                 )
             elif db_type == 'mssql':
                 from .mssql import MSSQLOperations
-                return MSSQLOperations(
+                db = MSSQLOperations(
                     server=db_config.get('server'),
                     database=db_config.get('database'),
                     username=db_config.get('username'),
@@ -43,6 +44,13 @@ class DatabaseFactory:
             else:
                 raise ConfigurationError(
                     f"Unsupported database type: {db_type}")
+
+            if db:
+                db.db_type = db_type
+                return db
+            else:
+                raise ConfigurationError("Failed to create database object")
+
         except ImportError as e:
             raise ConfigurationError(f"Failed to import database module: {str(e)}. "
                                      f"Make sure you have installed the necessary dependencies.")
