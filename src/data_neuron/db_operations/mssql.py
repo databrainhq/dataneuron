@@ -1,4 +1,5 @@
 from .base import DatabaseOperations
+from .exceptions import ConnectionError, OperationError
 
 
 class MSSQLOperations(DatabaseOperations):
@@ -16,8 +17,11 @@ class MSSQLOperations(DatabaseOperations):
             import pyodbc
             return pyodbc.connect(self.conn_str)
         except ImportError:
-            raise ImportError(
+            raise ConnectionError(
                 "MSSQL support is not installed. Please install it with 'pip install your_cli_tool[mssql]'")
+        except Exception as e:
+            raise ConnectionError(
+                f"Failed to connect to MSSQL database: {str(e)}")
 
     def get_table_list(self):
         try:
@@ -27,7 +31,7 @@ class MSSQLOperations(DatabaseOperations):
                         "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'")
                     return [table[0] for table in cursor.fetchall()]
         except Exception as e:
-            return f"An error occurred: {str(e)}"
+            raise OperationError(f"Failed to get table list: {str(e)}")
 
     def get_table_info(self, table_name):
         try:
@@ -65,7 +69,7 @@ class MSSQLOperations(DatabaseOperations):
                         ]
                     }
         except Exception as e:
-            return f"An error occurred: {str(e)}"
+            raise OperationError(f"Failed to get table info: {str(e)}")
 
     def execute_query(self, query: str) -> str:
         try:
@@ -73,9 +77,12 @@ class MSSQLOperations(DatabaseOperations):
                 with conn.cursor() as cursor:
                     cursor.execute(query)
                     results = cursor.fetchall()
-                    return "\n".join([str(row) for row in results])
+                    if results:
+                        return "\n".join([str(row) for row in results])
+                    else:
+                        return "Query executed successfully. No results to display."
         except Exception as e:
-            return f"An error occurred: {str(e)}"
+            raise OperationError(f"Failed to execute query: {str(e)}")
 
     def get_schema_info(self) -> str:
         try:
@@ -96,4 +103,4 @@ class MSSQLOperations(DatabaseOperations):
                         schema_info.append(f"  {row[1]} ({row[2]})")
                     return "\n".join(schema_info)
         except Exception as e:
-            return f"An error occurred: {str(e)}"
+            raise OperationError(f"Failed to get schema info: {str(e)}")
