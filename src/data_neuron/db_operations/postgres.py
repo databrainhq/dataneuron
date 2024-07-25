@@ -38,9 +38,11 @@ class PostgreSQLOperations(DatabaseOperations):
             with self._get_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(f"""
-                        SELECT column_name, data_type, 
-                               is_nullable, 
-                               CASE WHEN pk.column_name IS NOT NULL THEN TRUE ELSE FALSE END AS is_primary_key
+                        SELECT 
+                            c.column_name, 
+                            c.data_type,
+                            c.is_nullable,
+                            CASE WHEN pk.column_name IS NOT NULL THEN TRUE ELSE FALSE END AS is_primary_key
                         FROM information_schema.columns c
                         LEFT JOIN (
                             SELECT ku.column_name
