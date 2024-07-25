@@ -89,10 +89,7 @@ class MSSQLOperations(DatabaseOperations):
                 with conn.cursor() as cursor:
                     cursor.execute(query)
                     results = cursor.fetchall()
-                    if results:
-                        return "\n".join([str(row) for row in results])
-                    else:
-                        return "Query executed successfully. No results to display."
+                    return results
         except Exception as e:
             raise OperationError(f"Failed to execute query: {str(e)}")
 

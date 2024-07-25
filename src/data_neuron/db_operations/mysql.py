@@ -66,7 +66,7 @@ class MySQLOperations(DatabaseOperations):
                 with conn.cursor() as cursor:
                     cursor.execute(query)
                     results = cursor.fetchall()
-                    return "\n".join([str(row) for row in results])
+                    return results
         except Exception as e:
             return f"An error occurred: {str(e)}"
 
