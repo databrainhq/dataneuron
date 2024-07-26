@@ -207,7 +207,7 @@ def process_query(user_query: str) -> str:
 
     print_info(f"\nRefined query: {refined_query}\n")
 
-    return f"Refined query: {refined_query}"
+    return refined_query
 
 
 # Example usage
