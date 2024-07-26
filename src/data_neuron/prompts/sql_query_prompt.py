@@ -99,7 +99,7 @@ def get_sql_rules(db):
         - Assume all columns are initially stored as VARCHAR due to CSV import.
         - Always cast columns to appropriate types before performing calculations or comparisons:
           - For numeric operations: CAST(column_name AS DECIMAL) or CAST(column_name AS INTEGER)
-          - For date operations: strptime(column_name, '%Y-%m-%d') or try_cast(column_name AS DATE)
+          - For date operations: CAST(column_name AS DATE) or TRY_CAST(column_name AS DATE)
         - Use appropriate aggregation functions: SUM(), AVG(), COUNT(), etc., with type casting.
         - For string operations, use functions like LOWER(), UPPER(), etc.
         - For JSON operations, use json_extract() or json_extract_string()
@@ -119,35 +119,34 @@ def get_sql_rules(db):
                 FROM ranked_data
                 WHERE rank <= N
             - This ensures that the window function is calculated before any filtering is applied.
-        - When working with dates here:
-
+        - When working with dates:
             1. Always cast date strings to DATE type before using in date functions:
-            - Use: CAST(date_column AS DATE) or try_cast(date_column AS DATE)
-
+               - Use: CAST(date_column AS DATE) or TRY_CAST(date_column AS DATE)
             2. For date differences, use the following structure:
-            DATE_DIFF('unit', CAST(start_date AS DATE), CAST(end_date AS DATE))
-            Where 'unit' can be 'day', 'month', 'year', etc.
-
+               DATEDIFF('unit', CAST(start_date AS DATE), CAST(end_date AS DATE))
+               Where 'unit' can be 'day', 'month', 'year', etc.
             3. When using date_trunc or other date functions, always cast to DATE first:
-            date_trunc('month', CAST(date_column AS DATE))
-
+               DATE_TRUNC('month', CAST(date_column AS DATE))
             4. For parsing date strings, use:
-            strptime(date_string, 'format')
-            Example: strptime(date_column, '%Y-%m-%d')
-
+               STRPTIME(date_string, 'format')
+               Example: STRPTIME(date_column, '%Y-%m-%d')
             5. When comparing dates, ensure both sides are cast to DATE:
-            WHERE CAST(date_column AS DATE) > CAST('2023-01-01' AS DATE)
-
+               WHERE CAST(date_column AS DATE) > CAST('2023-01-01' AS DATE)
             6. For date arithmetic, use INTERVAL:
-            CAST(date_column AS DATE) + INTERVAL '1 day'
-
+               CAST(date_column AS DATE) + INTERVAL '1 day'
             7. Always assume date columns from CSV files are stored as VARCHAR and need explicit casting.
-
             8. When calculating average time differences, cast the result to ensure decimal precision:
-            AVG(CAST(DATE_DIFF('day', CAST(start_date AS DATE), CAST(end_date AS DATE)) AS DECIMAL(10,2)))
-
-            Remember, proper date handling and casting is crucial for correct query execution in DuckDB, especially when working with CSV data.
-
+               AVG(CAST(DATEDIFF('day', CAST(start_date AS DATE), CAST(end_date AS DATE)) AS DECIMAL(10,2)))
+            9. For formatting dates, use STRFTIME():
+               STRFTIME(CAST(date_column AS DATE), '%b - %Y') for 'Mon - YYYY' format
+            10. When ordering by formatted date strings, use DATE_TRUNC() in the ORDER BY clause:
+                ORDER BY DATE_TRUNC('month', CAST(date_column AS DATE))
+            11. If you need to group by month and year, use DATE_TRUNC() in the GROUP BY clause as well:
+                GROUP BY DATE_TRUNC('month', CAST(date_column AS DATE))
+            12. When selecting formatted dates, you can combine DATE_TRUNC() and STRFTIME():
+                STRFTIME(DATE_TRUNC('month', CAST(date_column AS DATE)), '%b - %Y') AS formatted_date
+        
+        Remember, proper date handling and casting is crucial for correct query execution in DuckDB, especially when working with CSV data.
     """
     else:
         return "Database type not recognized. Please specify 'postgres', 'mysql', 'mssql', or 'sqlite' or 'csv'"
@@ -157,6 +156,7 @@ def sql_query_prompt(query, context):
     db = context["database"]
     context_prompt = "Database Context:\n\n"
 
+    given_db = 'duckdb' if db == 'csv' else db
     # Format table information
     context_prompt += "Tables:\n"
     for table_name, table_data in context["tables"].items():
@@ -201,7 +201,7 @@ def sql_query_prompt(query, context):
             context: users.id with alias uid
             correct: SELECT id as uid ..
             incorrect: SELECT uid
-    - Based on the query, formulate an SQL query targeting the database: "{db}".
+    - Based on the query, formulate an SQL query targeting the database: "{given_db}".
     - Follow best practices for SQL query construction, including proper syntax formatting, and strictly adhere to the SQL rules provided below:
         {get_sql_rules(db)}
         - Ensure to apply appropriate filters based on the column type, and if necessary, cast the column to the correct data type for accurate querying.

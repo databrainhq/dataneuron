@@ -93,19 +93,13 @@ pip install "dataneuron[mysql]"
    This will create YAML files in the `context/` directory which will be your semantic layer for your data.
    You will be told to select couple of tables, so that it can be auto-labelled which you can edit later.
 
-3. Ask a question about your database:
-
-   ```
-   dnn --ask "What is the total user count?"
-   ```
-
-4. Or start an interactive chat session:
+3. Or start an interactive chat session:
 
    ```
    dnn --chat
    ```
 
-5. You can generate reports with image as input for your dashboards. You need to have `wkhtmltopdf` in your system.
+4. You can generate reports with image as input for your dashboards. You need to have `wkhtmltopdf` in your system.
    For mac
 
 ```
@@ -166,7 +160,6 @@ DATA_NEURON_LLM_MODEL=your_preferred_local_model_here
 
 - Initialize database config: `dnn --db-init <database_type>`
 - Generate context: `dnn --init`
-- Ask a question: `dnn --ask "Your question here"`
 - Start chat mode: `dnn --chat`
 
 ## Video Examples

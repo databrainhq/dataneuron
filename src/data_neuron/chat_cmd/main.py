@@ -1,4 +1,5 @@
 import click
+import time
 import os
 import yaml
 from ..prompts.sql_query_prompt import sql_query_prompt
@@ -9,7 +10,8 @@ from ..ask_cmd.query_worker import db_query_worker
 from ..query_refiner import process_query
 from ..api.main import stream_neuron_api
 from ..context_loader import load_context
-from ..utils.print import print_header, print_prompt, print_info, print_success, print_warning
+from ..utils.print import print_header, print_prompt, print_info, print_success, print_warning, print_error, create_box
+from tabulate import tabulate
 
 MAX_CHAT_HISTORY = 5  # Maximum number of messages to keep in chat history
 
@@ -90,7 +92,8 @@ def process_with_llm(query: str, context: dict, chat_history: list):
         'sql_queue': Queue(),
         'db_result': None,
         'sql_query': None,
-        'context': context
+        'context': context,
+        'execution_complete': threading.Event()
     }
 
     db_thread = threading.Thread(
@@ -102,13 +105,41 @@ def process_with_llm(query: str, context: dict, chat_history: list):
         process_simplified_xml(chunk, state)
         assistant_response += chunk
 
-    sql_query = state['sql_query']
-    state['sql_queue'].put(None)
-    db_result = state['db_result']
+    if state['sql_query']:
+        state['sql_queue'].put(state['sql_query'])
+    else:
+        state['sql_queue'].put(None)
+
+    # Wait for the database execution to complete
+    # Wait up to 60 seconds for execution
+    state['execution_complete'].wait(timeout=60)
+
     db_thread.join()
 
-    print("\n")
-    return sql_query, db_result, changed_query
+    # Now handle the result presentation here
+    if state['db_result']:
+        result, column_names = state['db_result']
+        if isinstance(result, str):  # This is an error message
+            print_error(result)
+        else:
+            print_formatted_result(result, column_names)
+
+    return state['sql_query'], state['db_result'], changed_query
+
+
+def print_formatted_result(result, column_names):
+    if not result:
+        print_info("No results found.")
+        return
+    if len(result) == 1 and len(result[0]) == 1:
+        # Single value result
+        value = result[0][0]
+        box = create_box("Query Result", f"{column_names[0]}: {value}", "")
+        click.echo(box)
+    else:
+        # Multiple rows or columns
+        table = tabulate(result, headers=column_names, tablefmt="grid")
+        click.echo(table)
 
 
 def save_metric_to_dashboard(query):

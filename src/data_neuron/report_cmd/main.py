@@ -116,7 +116,6 @@ def generate_report():
         print_info("No image provided. Using standard API...")
         response = call_neuron_api(prompt)
 
-    print_info("thml content")
     html_content = extract_html_from_response(response)
 
     # Save HTML content to a file
