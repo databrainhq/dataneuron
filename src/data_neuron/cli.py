@@ -3,6 +3,8 @@ from .ask_cmd.main import query
 from .context_init_cmd.main import init_context
 from .db_init_cmd.main import init_database_config
 from .chat_cmd.main import start_chat  # New import for chat functionality
+from .report_cmd.main import generate_report  # New import
+
 
 VERSION = "0.1.3"  # Update this as you release new versions
 
@@ -14,7 +16,9 @@ VERSION = "0.1.3"  # Update this as you release new versions
 # New option for chat
 @click.option('--chat', is_flag=True, help='Start an interactive chat session.')
 @click.option('--version', is_flag=True, help='Show the version of the tool')
-def cli(init, ask, db_init, chat, version):
+# New option
+@click.option('--report', is_flag=True, help='Generate a dashboard report.')
+def cli(init, ask, db_init, chat, version, report):
     if init:
         init_context()
     elif ask:
@@ -26,6 +30,8 @@ def cli(init, ask, db_init, chat, version):
     elif version:
         click.echo(f"Data Neuron CLI version {VERSION}")
         return
+    elif report:
+        generate_report()
     else:
         click.echo(cli.get_help(click.get_current_context()))
 

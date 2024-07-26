@@ -78,6 +78,7 @@ def call_claude_vision_api_with_pagination(query: str, image_path: str, include_
     api_key = get_api_key()
     headers = get_headers(api_key)
 
+    print("cluade...vision")
     mime_type, image_data = convert_to_base64(image_path)
 
     full_response = ""

@@ -34,6 +34,8 @@ def list_dashboards():
 
 def start_chat():
     print_header("Starting DATA neuron chat session...")
+    print_warning(
+        "Please remember your messages and result wll be sent to LLM for API call.")
     print_info("🗄️ Fetching the context from your context folder\n")
     context = load_context()
     print_success("Context is loaded!\n")

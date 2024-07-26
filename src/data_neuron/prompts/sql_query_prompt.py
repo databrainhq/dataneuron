@@ -94,8 +94,63 @@ def get_sql_rules(db):
         - Use the SQLite-specific json_extract() function for JSON operations.
         - Use date('now') or datetime('now') for current date and time.
         """
+    elif db == "csv":
+        return common_rules + """
+        - Assume all columns are initially stored as VARCHAR due to CSV import.
+        - Always cast columns to appropriate types before performing calculations or comparisons:
+          - For numeric operations: CAST(column_name AS DECIMAL) or CAST(column_name AS INTEGER)
+          - For date operations: strptime(column_name, '%Y-%m-%d') or try_cast(column_name AS DATE)
+        - Use appropriate aggregation functions: SUM(), AVG(), COUNT(), etc., with type casting.
+        - For string operations, use functions like LOWER(), UPPER(), etc.
+        - For JSON operations, use json_extract() or json_extract_string()
+        - Available date functions: strftime(), date_part(), date_trunc(), etc.
+        - IMPORTANT: When using window functions (like ROW_NUMBER(), RANK(), etc.) 
+            - Window functions cannot be used directly in WHERE, HAVING, or GROUP BY clauses.
+            - To filter or order by the result of a window function, you must use a subquery or CTE.
+            - Always structure your query as follows when using window functions with filters:
+                WITH ranked_data AS (
+                    SELECT
+                        ...,
+                        RANK() OVER (...) AS rank
+                    FROM
+                        ...
+                )
+                SELECT *
+                FROM ranked_data
+                WHERE rank <= N
+            - This ensures that the window function is calculated before any filtering is applied.
+        - When working with dates here:
+
+            1. Always cast date strings to DATE type before using in date functions:
+            - Use: CAST(date_column AS DATE) or try_cast(date_column AS DATE)
+
+            2. For date differences, use the following structure:
+            DATE_DIFF('unit', CAST(start_date AS DATE), CAST(end_date AS DATE))
+            Where 'unit' can be 'day', 'month', 'year', etc.
+
+            3. When using date_trunc or other date functions, always cast to DATE first:
+            date_trunc('month', CAST(date_column AS DATE))
+
+            4. For parsing date strings, use:
+            strptime(date_string, 'format')
+            Example: strptime(date_column, '%Y-%m-%d')
+
+            5. When comparing dates, ensure both sides are cast to DATE:
+            WHERE CAST(date_column AS DATE) > CAST('2023-01-01' AS DATE)
+
+            6. For date arithmetic, use INTERVAL:
+            CAST(date_column AS DATE) + INTERVAL '1 day'
+
+            7. Always assume date columns from CSV files are stored as VARCHAR and need explicit casting.
+
+            8. When calculating average time differences, cast the result to ensure decimal precision:
+            AVG(CAST(DATE_DIFF('day', CAST(start_date AS DATE), CAST(end_date AS DATE)) AS DECIMAL(10,2)))
+
+            Remember, proper date handling and casting is crucial for correct query execution in DuckDB, especially when working with CSV data.
+
+    """
     else:
-        return "Database type not recognized. Please specify 'postgres', 'mysql', 'mssql', or 'sqlite'."
+        return "Database type not recognized. Please specify 'postgres', 'mysql', 'mssql', or 'sqlite' or 'csv'"
 
 
 def sql_query_prompt(query, context):

@@ -64,3 +64,7 @@ def print_header(message):
 
 def confirm_with_user(msg):
     return click.confirm(f"{Fore.YELLOW} {msg} {Style.RESET_ALL}", default=False)
+
+
+def styled_prompt(message):
+    return click.prompt(click.style(f"\n{message}", fg="green", bold=True), default='', show_default=False)

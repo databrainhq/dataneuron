@@ -10,7 +10,6 @@ https://github.com/user-attachments/assets/ab4d0b69-2ecd-432a-9a2d-b50520325df4
 
 <img width="621" alt="Screenshot 2024-07-25 at 11 30 35 PM" src="https://github.com/user-attachments/assets/09353e34-a0f7-4650-b477-746eaf10c354">
 
-
 A small framework, Data Neuron is optimized for working with subsets of database, typically handling 10 to 15 tables.
 
 Data Neuron's objective is to give an ability to maintain and improve the semantic layer/knowledge graph,
@@ -101,9 +100,21 @@ pip install "dataneuron[mysql]"
    ```
 
 4. Or start an interactive chat session:
+
    ```
    dnn --chat
    ```
+
+5. You can generate reports with image as input for your dashboards. You need to have `wkhtmltopdf` in your system.
+   For mac
+
+```
+brew install wkhtmltopdf
+```
+
+```
+dnn --report
+```
 
 ## Configuration
 

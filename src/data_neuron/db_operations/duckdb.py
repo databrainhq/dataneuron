@@ -87,7 +87,7 @@ class DuckDBOperations(DatabaseOperations):
         try:
             conn = self._get_connection()
             result = conn.execute(query).fetchall()
-            return "\n".join([str(row) for row in result])
+            return result
         except Exception as e:
             return f"An error occurred: {str(e)}"
 
