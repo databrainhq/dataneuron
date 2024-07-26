@@ -148,6 +148,13 @@ DATA_NEURON_LLM_MODEL=your_preferred_local_model_here
 
 ## Video Examples
 
+### With CSV files
+
+In this example there is a folder called `dataset-raw` with files like events.csv, orders.csv, each csv will be considered as a table
+
+https://github.com/user-attachments/assets/49590442-3942-4d22-ab49-2c847f674f7e
+
+
 ### Quick start with SQLITE
 
 To start with sqlite you can just do `pip install dataneuron`, you don't need any dependencies.
