@@ -41,6 +41,9 @@ class DatabaseFactory:
                     username=db_config.get('username'),
                     password=db_config.get('password')
                 )
+            elif db_type == 'csv':
+                from .duckdb import DuckDBOperations
+                return DuckDBOperations(db_config.get('data_directory'))
             else:
                 raise ConfigurationError(
                     f"Unsupported database type: {db_type}")

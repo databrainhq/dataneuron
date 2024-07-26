@@ -5,7 +5,8 @@ from ..db_operations.factory import DatabaseFactory
 
 def get_table_list():
     db = DatabaseFactory.get_database()
-    return db.db_type, db.get_table_list()
+    res = db.get_table_list()
+    return db.db_type, res
 
 
 def choose_tables(all_tables):

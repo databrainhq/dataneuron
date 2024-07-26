@@ -8,10 +8,13 @@ class SQLiteOperations:
 
     def get_table_list(self):
         with sqlite3.connect(self.db_path) as conn:
+            print("here...")
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT name FROM sqlite_master WHERE type='table';")
-            return [table[0] for table in cursor.fetchall()]
+            results = [table[0] for table in cursor.fetchall()]
+            print(results, "results.. list")
+            return results
 
     def get_table_info(self, table_name):
         with sqlite3.connect(self.db_path) as conn:

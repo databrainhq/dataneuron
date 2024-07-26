@@ -37,6 +37,8 @@ def get_db_config(db_type):
                 'username': '${MSSQL_USERNAME}',
                 'password': '${MSSQL_PASSWORD}'
             })
+        elif db_type == 'csv':
+            config['database']['data_directory'] = '${DATA_DIRECTORY}'
 
         print_info("Please set the following environment variables:")
         for key, value in config['database'].items():
@@ -68,6 +70,9 @@ def get_db_config(db_type):
                 'username': click.prompt("Enter the username", type=str),
                 'password': click.prompt("Enter the password", type=str, hide_input=True)
             })
+        elif db_type == 'csv':
+            config['database']['data_directory'] = click.prompt(
+                "Enter the directory path containing your CSV/Parquet files", type=str)
 
     return config
 

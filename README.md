@@ -1,4 +1,4 @@
-# Data Neuron 
+# Data Neuron
 
 Data Neuron is a powerful AI-driven data framework to create and maintain AI DATA analyst.
 
@@ -10,12 +10,13 @@ there by letting an AI agent with general intelligence to be Data Intelligent sp
 https://github.com/user-attachments/assets/ab4d0b69-2ecd-432a-9a2d-b50520325df4
 
 ### The framework:
+
 <img width="621" alt="Screenshot 2024-07-25 at 11 30 35 PM" src="https://github.com/user-attachments/assets/09353e34-a0f7-4650-b477-746eaf10c354">
 
 ## Features
 
-- Support for multiple database types (SQLite, PostgreSQL, MySQL, MSSQL)
-- Accurate natural language to SQL query conversion based on your semantic(context) layer and SQL execution
+- Support for multiple database types (SQLite, PostgreSQL, MySQL, MSSQL, CSV files(through duckdb))
+- Natural language to SQL query conversion
 - Interactive chat mode for continuous database querying
 - Automatic context generation from database schema
 - Customizable context for improved query accuracy
@@ -51,11 +52,19 @@ Data Neuron can be installed with different database support options:
    ```
 
 5. With all database supports:
+
    ```
    pip install dataneuron[all]
    ```
 
-Note: if you use zsh, you might have to use quotes around the package name like
+6. With CSV support:
+
+   ```
+   pip install dataneuron[csv]
+   ```
+
+Note: if you use zsh, you might have to use quotes around the package name like. For csv right now it doesn't
+support nested folder structure just a folder with csv files, each csv will be treated as a table.
 
 ```
 pip install "dataneuron[mysql]"
@@ -154,15 +163,11 @@ In this example there is a folder called `dataset-raw` with files like events.cs
 
 https://github.com/user-attachments/assets/49590442-3942-4d22-ab49-2c847f674f7e
 
-
 ### Quick start with SQLITE
 
 To start with sqlite you can just do `pip install dataneuron`, you don't need any dependencies.
 
-
 https://github.com/user-attachments/assets/29199b15-b39c-4917-9f8b-9bb6909ac66a
-
-
 
 ## Roadmap
 
