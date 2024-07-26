@@ -5,9 +5,7 @@ Data Neuron is a powerful AI-driven data framework to create and maintain AI DAT
 Supports SQLite, PostgreSQL, MySQL, MSSQL, CSV files(through duckdb). Works with major LLMs like Claude (default), OpenAI, LLAMA etc(through groq, nvidia, ..), OLLAMA.
 
 
-
-https://github.com/user-attachments/assets/5a5fc5f5-16ac-4092-9cf4-9c9fa514f279
-
+https://github.com/user-attachments/assets/2301e7cd-a895-4b9b-8a8f-2f30c3e02e16
 
 
 https://github.com/user-attachments/assets/5f6ed1f2-58cd-4e75-ae0b-745f7177a746
