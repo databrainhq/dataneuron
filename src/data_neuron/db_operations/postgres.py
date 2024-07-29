@@ -1,6 +1,6 @@
 from .base import DatabaseOperations
 from .exceptions import ConnectionError, OperationError
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
 
 
 class PostgreSQLOperations(DatabaseOperations):
@@ -26,17 +26,22 @@ class PostgreSQLOperations(DatabaseOperations):
             raise ConnectionError(
                 f"Failed to connect to PostgreSQL database: {str(e)}") from e
 
-    def get_table_list(self):
+    def get_table_list(self) -> List[Dict[str, str]]:
         try:
             with self._get_connection() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute(
-                        "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
-                    return [table[0] for table in cursor.fetchall()]
+                    cursor.execute("""
+                        SELECT table_schema, table_name
+                        FROM information_schema.tables
+                        WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+                        AND table_type = 'BASE TABLE'
+                        ORDER BY table_schema, table_name
+                    """)
+                    return [{"schema": row[0], "table": row[1]} for row in cursor.fetchall()]
         except Exception as e:
             raise OperationError(f"Failed to get table list: {str(e)}") from e
 
-    def get_table_info(self, table_name):
+    def get_table_info(self, schema: str, table: str) -> Dict[str, Any]:
         try:
             with self._get_connection() as conn:
                 with conn.cursor() as cursor:
@@ -53,13 +58,16 @@ class PostgreSQLOperations(DatabaseOperations):
                             JOIN information_schema.key_column_usage ku
                                 ON tc.constraint_name = ku.constraint_name
                             WHERE tc.constraint_type = 'PRIMARY KEY'
+                            AND tc.table_schema = %s
                             AND tc.table_name = %s
                         ) pk ON c.column_name = pk.column_name
-                        WHERE c.table_name = %s
-                    """, (table_name, table_name))
+                        WHERE c.table_schema = %s AND c.table_name = %s
+                    """, (schema, table, schema, table))
                     columns = cursor.fetchall()
                     return {
-                        'table_name': table_name,
+                        'schema': schema,
+                        'table_name': table,
+                        'full_name': f"{schema}.{table}",
                         'columns': [
                             {
                                 'name': col[0],
@@ -70,7 +78,7 @@ class PostgreSQLOperations(DatabaseOperations):
                         ]
                     }
         except Exception as e:
-            return f"An error occurred: {str(e)}"
+            raise OperationError(f"Failed to get table info: {str(e)}") from e
 
     def execute_query_with_column_names(self, query: str) -> Tuple[List[Tuple], List[str]]:
         try:
@@ -83,34 +91,12 @@ class PostgreSQLOperations(DatabaseOperations):
         except Exception as e:
             raise OperationError(f"Failed to execute query: {str(e)}") from e
 
-    def execute_query(self, query: str) -> str:
+    def execute_query(self, query: str) -> List[Tuple]:
         try:
             with self._get_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(query)
                     results = cursor.fetchall()
                     return "\n".join([str(row) for row in results])
-        except Exception as e:
-            return f"An error occurred: {str(e)}"
-
-    def get_schema_info(self) -> str:
-        try:
-            with self._get_connection() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute("""
-                        SELECT table_name, column_name, data_type
-                        FROM information_schema.columns
-                        WHERE table_schema = 'public'
-                        ORDER BY table_name, ordinal_position;
-                    """)
-                    results = cursor.fetchall()
-                    schema_info = []
-                    current_table = ""
-                    for row in results:
-                        if row[0] != current_table:
-                            current_table = row[0]
-                            schema_info.append(f"\nTable: {current_table}")
-                        schema_info.append(f"  {row[1]} ({row[2]})")
-                    return "\n".join(schema_info)
         except Exception as e:
             return f"An error occurred: {str(e)}"

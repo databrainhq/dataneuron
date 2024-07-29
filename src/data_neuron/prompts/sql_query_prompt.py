@@ -212,6 +212,7 @@ def sql_query_prompt(query, context):
     SQL query guidelines:
     - Only generate SELECT statements, non-write, non-destructive queries.
     - Only reference tables, coilumns given in the context.
+    - Always use fully qualified table names (schema.table_name) in your SQL queries.
     - Use the provided aliases and global definitions to interpret the user's query accurately.
     - Use actual columns and tables to query. Never use alias to query the column.
         example:
@@ -244,8 +245,9 @@ def sql_query_prompt(query, context):
             Counts the total number of users in the users table.
         </explanation>
         <references>
-            Tables: users
-            Columns: users.id
+            Tables: schema1.table1, schema2.table2
+            Columns: schema1.table1.column1, schema2.table2.column2
+            Definitions: definition1, definition2
         </references>
     </response>
 
