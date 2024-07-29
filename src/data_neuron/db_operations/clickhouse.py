@@ -1,6 +1,6 @@
 from .base import DatabaseOperations
 from .exceptions import ConnectionError, OperationError
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 
 class ClickHouseOperations(DatabaseOperations):
@@ -27,58 +27,47 @@ class ClickHouseOperations(DatabaseOperations):
             raise ConnectionError(
                 f"Failed to connect to ClickHouse database: {str(e)}")
 
-    def get_table_list(self) -> List[str]:
+    def get_table_list(self) -> List[Dict[str, str]]:
         try:
-            client = self._get_connection()
-            result = client.query("SHOW TABLES")
-            return [row[0] for row in result.result_rows]
+            with self._get_connection() as client:
+                result = client.execute("SHOW TABLES")
+                return [{"schema": self.conn_params['database'], "table": table[0]} for table in result]
         except Exception as e:
             raise OperationError(f"Failed to get table list: {str(e)}")
 
-    def get_table_info(self, table_name: str) -> dict:
+    def get_table_info(self, schema: str, table: str) -> Dict[str, Any]:
         try:
-            client = self._get_connection()
-            result = client.query(f"DESCRIBE {table_name}")
-            return {
-                'table_name': table_name,
-                'columns': [
-                    {
-                        'name': col[0],
-                        'type': col[1],
-                        'nullable': col[5] == 'YES',
-                        'primary_key': col[6] == 'true'
-                    } for col in result.result_rows
-                ]
-            }
+            with self._get_connection() as client:
+                result = client.execute(f"DESCRIBE {table}")
+                return {
+                    'schema': schema,
+                    'table_name': table,
+                    'full_name': f"{schema}.{table}",
+                    'columns': [
+                        {
+                            'name': col[0],
+                            'type': col[1],
+                            'nullable': col[5] == 'YES',
+                            'primary_key': False  # ClickHouse doesn't have a direct concept of primary keys
+                        } for col in result
+                    ]
+                }
         except Exception as e:
             raise OperationError(f"Failed to get table info: {str(e)}")
 
     def execute_query_with_column_names(self, query: str) -> Tuple[List[Tuple], List[str]]:
         try:
-            client = self._get_connection()
-            result = client.query(query)
-            return result.result_rows, result.column_names
+            with self._get_connection() as client:
+                result = client.execute(query, with_column_types=True)
+                rows, column_types = result
+                column_names = [col[0] for col in column_types]
+                return rows, column_names
         except Exception as e:
             raise OperationError(f"Failed to execute query: {str(e)}")
 
-    def execute_query(self, query: str) -> str:
+    def execute_query(self, query: str) -> List[Tuple]:
         try:
-            client = self._get_connection()
-            result = client.query(query)
-            return result.result_rows
+            with self._get_connection() as client:
+                return client.execute(query)
         except Exception as e:
             raise OperationError(f"Failed to execute query: {str(e)}")
-
-    def get_schema_info(self) -> str:
-        try:
-            client = self._get_connection()
-            tables = self.get_table_list()
-            schema_info = []
-            for table in tables:
-                schema_info.append(f"\nTable: {table}")
-                columns = client.query(f"DESCRIBE {table}")
-                for column in columns.result_rows:
-                    schema_info.append(f"  {column[0]} ({column[1]})")
-            return "\n".join(schema_info)
-        except Exception as e:
-            raise OperationError(f"Failed to get schema info: {str(e)}")

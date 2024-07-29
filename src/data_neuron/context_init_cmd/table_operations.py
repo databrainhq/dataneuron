@@ -1,12 +1,10 @@
-
 import click
 from ..db_operations.factory import DatabaseFactory
 
 
 def get_table_list():
     db = DatabaseFactory.get_database()
-    res = db.get_table_list()
-    return db.db_type, res
+    return db.db_type, db.get_table_list()
 
 
 def choose_tables(all_tables):
@@ -15,8 +13,8 @@ def choose_tables(all_tables):
         batch = all_tables[i:i+10]
         click.echo(
             "Choose tables (enter numbers separated by commas, or 'all' for all, 'skip' for next batch, 'done' to finish):")
-        for idx, table in enumerate(batch, start=1):
-            click.echo(f"{idx}. {table}")
+        for idx, table_info in enumerate(batch, start=1):
+            click.echo(f"{idx}. {table_info['schema']}.{table_info['table']}")
         choice = click.prompt("Your choice").lower()
         if choice == 'all':
             chosen_tables.extend(batch)
@@ -31,9 +29,9 @@ def choose_tables(all_tables):
     return chosen_tables
 
 
-def generate_yaml_for_table(table_name):
+def generate_yaml_for_table(schema, table):
     db = DatabaseFactory.get_database()
-    table_info = db.get_table_info(table_name)
+    table_info = db.get_table_info(schema, table)
 
     from ..prompts.yaml_generation_prompt import table_yaml_prompt
     from ..api.main import stream_neuron_api

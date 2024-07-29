@@ -1,5 +1,3 @@
-# src/data_neuron/db_operations/duckdb_operations.py
-
 import os
 from typing import List, Dict, Any, Tuple
 from .base import DatabaseOperations
@@ -35,32 +33,30 @@ class DuckDBOperations(DatabaseOperations):
             for csv_file in self.csv_files:
                 table_name = os.path.splitext(csv_file)[0]
                 file_path = os.path.join(self.data_directory, csv_file)
-                # Use ALL_VARCHAR=1 to read all columns as VARCHAR
                 self.conn.execute(f"""
                     CREATE TABLE {table_name} AS 
                     SELECT * FROM read_csv_auto('{file_path}', ALL_VARCHAR=1)
                 """)
-                # print(f"Loaded {table_name} from {csv_file}")
-            # print(f"Loaded {len(self.csv_files)} CSV files as tables.")
         except Exception as e:
             raise OperationError(f"Failed to load CSV files: {str(e)}") from e
 
-    def get_table_list(self) -> List[str]:
+    def get_table_list(self) -> List[Dict[str, str]]:
         try:
             conn = self._get_connection()
             result = conn.execute(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'").fetchall()
-            return [row[0] for row in result]
+            return [{"schema": "main", "table": row[0]} for row in result]
         except Exception as e:
             raise OperationError(f"Failed to get table list: {str(e)}") from e
 
-    def get_table_info(self, table_name: str) -> Dict[str, Any]:
+    def get_table_info(self, schema: str, table: str) -> Dict[str, Any]:
         try:
             conn = self._get_connection()
-            columns = conn.execute(
-                f"PRAGMA table_info('{table_name}')").fetchall()
+            columns = conn.execute(f"PRAGMA table_info('{table}')").fetchall()
             return {
-                'table_name': table_name,
+                'schema': 'main',
+                'table_name': table,
+                'full_name': f"main.{table}",
                 'columns': [
                     {
                         'name': col[1],
@@ -83,25 +79,10 @@ class DuckDBOperations(DatabaseOperations):
         except Exception as e:
             raise OperationError(f"Failed to execute query: {str(e)}") from e
 
-    def execute_query(self, query: str) -> str:
+    def execute_query(self, query: str) -> List[Tuple]:
         try:
             conn = self._get_connection()
             result = conn.execute(query).fetchall()
             return result
         except Exception as e:
-            return f"An error occurred: {str(e)}"
-
-    def get_schema_info(self) -> str:
-        try:
-            conn = self._get_connection()
-            tables = self.get_table_list()
-            schema_info = []
-            for table in tables:
-                schema_info.append(f"\nTable: {table}")
-                columns = conn.execute(
-                    f"PRAGMA table_info('{table}')").fetchall()
-                for col in columns:
-                    schema_info.append(f"  {col[1]} ({col[2]})")
-            return "\n".join(schema_info)
-        except Exception as e:
-            return f"An error occurred: {str(e)}"
+            raise OperationError(f"Failed to execute query: {str(e)}")

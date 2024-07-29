@@ -11,18 +11,13 @@ class DatabaseOperations(ABC):
         pass
 
     @abstractmethod
-    def get_table_info(self, table_name):
+    def get_table_info(self, schema, table_name):
         pass
 
     @abstractmethod
     def execute_query(self, query: str) -> str:
         pass
 
-    @abstractmethod
-    def get_schema_info(self) -> str:
-        pass
-
-    @abstractmethod
     def execute_query_with_column_names(self, query: str) -> Tuple[List[Tuple], List[str]]:
         pass
 

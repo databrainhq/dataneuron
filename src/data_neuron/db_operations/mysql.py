@@ -1,6 +1,6 @@
 from .base import DatabaseOperations
-from .exceptions import OperationError
-from typing import List, Tuple
+from .exceptions import ConnectionError, OperationError
+from typing import List, Tuple, Dict, Any
 
 
 class MySQLOperations(DatabaseOperations):
@@ -19,26 +19,31 @@ class MySQLOperations(DatabaseOperations):
             import mysql.connector
             return mysql.connector.connect(**self.conn_params)
         except ImportError:
-            raise ImportError(
+            raise ConnectionError(
                 "MySQL support is not installed. Please install it with 'pip install your_cli_tool[mysql]'")
+        except Exception as e:
+            raise ConnectionError(
+                f"Failed to connect to MySQL database: {str(e)}")
 
-    def get_table_list(self):
+    def get_table_list(self) -> List[Dict[str, str]]:
         try:
             with self._get_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("SHOW TABLES")
-                    return [table[0] for table in cursor.fetchall()]
+                    return [{"schema": self.conn_params['database'], "table": table[0]} for table in cursor.fetchall()]
         except Exception as e:
-            return f"An error occurred: {str(e)}"
+            raise OperationError(f"Failed to get table list: {str(e)}")
 
-    def get_table_info(self, table_name):
+    def get_table_info(self, schema: str, table: str) -> Dict[str, Any]:
         try:
             with self._get_connection() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute(f"DESCRIBE {table_name}")
+                    cursor.execute(f"DESCRIBE {table}")
                     columns = cursor.fetchall()
                     return {
-                        'table_name': table_name,
+                        'schema': schema,
+                        'table_name': table,
+                        'full_name': f"{schema}.{table}",
                         'columns': [
                             {
                                 'name': col[0],
@@ -49,7 +54,7 @@ class MySQLOperations(DatabaseOperations):
                         ]
                     }
         except Exception as e:
-            return f"An error occurred: {str(e)}"
+            raise OperationError(f"Failed to get table info: {str(e)}")
 
     def execute_query_with_column_names(self, query: str) -> Tuple[List[Tuple], List[str]]:
         try:
@@ -60,32 +65,13 @@ class MySQLOperations(DatabaseOperations):
                     column_names = [desc[0] for desc in cursor.description]
                     return results, column_names
         except Exception as e:
-            raise OperationError(f"Failed to execute query: {str(e)}") from e
+            raise OperationError(f"Failed to execute query: {str(e)}")
 
-    def execute_query(self, query: str) -> str:
+    def execute_query(self, query: str) -> List[Tuple]:
         try:
             with self._get_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(query)
-                    results = cursor.fetchall()
-                    return results
+                    return cursor.fetchall()
         except Exception as e:
-            return f"An error occurred: {str(e)}"
-
-    def get_schema_info(self) -> str:
-        try:
-            with self._get_connection() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute("SHOW TABLES")
-                    tables = cursor.fetchall()
-                    schema_info = []
-                    for table in tables:
-                        table_name = table[0]
-                        cursor.execute(f"DESCRIBE {table_name}")
-                        columns = cursor.fetchall()
-                        schema_info.append(f"\nTable: {table_name}")
-                        for column in columns:
-                            schema_info.append(f"  {column[0]} ({column[1]})")
-                    return "\n".join(schema_info)
-        except Exception as e:
-            return f"An error occurred: {str(e)}"
+            raise OperationError(f"Failed to execute query: {str(e)}")

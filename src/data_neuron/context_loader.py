@@ -19,15 +19,23 @@ def load_context():
         if filename.endswith('.yaml'):
             with open(os.path.join(tables_path, filename), 'r') as f:
                 table_data = yaml.safe_load(f)
-                context['tables'][table_data['table_name']] = table_data
+                # Default to 'main' if schema is not specified
+                schema_name = table_data.get('schema', 'main')
+                table_name = table_data['table_name']
+                full_name = f"{schema_name}.{table_name}"
+                context['tables'][full_name] = table_data
 
     # Load relationships
-    with open(os.path.join('context', 'relationships.yaml'), 'r') as f:
-        context['relationships'] = yaml.safe_load(f)
+    relationships_path = os.path.join('context', 'relationships.yaml')
+    if os.path.exists(relationships_path):
+        with open(relationships_path, 'r') as f:
+            context['relationships'] = yaml.safe_load(f)
 
     # Load global definitions
-    with open(os.path.join('context', 'definitions.yaml'), 'r') as f:
-        context['global_definitions'] = yaml.safe_load(f)
+    definitions_path = os.path.join('context', 'definitions.yaml')
+    if os.path.exists(definitions_path):
+        with open(definitions_path, 'r') as f:
+            context['global_definitions'] = yaml.safe_load(f)
 
     # Load database configuration
     if not os.path.exists(CONFIG_PATH):
@@ -41,7 +49,7 @@ def load_context():
         if not db_config:
             raise ConfigurationError(
                 "No database configuration found in the YAML file.")
-        # careful this loads into context,
+        # IMPORTANT not to send db_config itself
         context['database'] = db_config.get('name')
     except yaml.YAMLError as e:
         raise ConfigurationError(f"Error parsing YAML configuration: {str(e)}")

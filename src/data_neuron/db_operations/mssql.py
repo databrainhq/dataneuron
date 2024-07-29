@@ -1,6 +1,6 @@
 from .base import DatabaseOperations
 from .exceptions import ConnectionError, OperationError
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
 
 
 class MSSQLOperations(DatabaseOperations):
@@ -26,17 +26,20 @@ class MSSQLOperations(DatabaseOperations):
             raise ConnectionError(
                 f"Failed to connect to MSSQL database: {str(e)}")
 
-    def get_table_list(self):
+    def get_table_list(self) -> List[Dict[str, str]]:
         try:
             with self._get_connection() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute(
-                        "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'")
-                    return [table[0] for table in cursor.fetchall()]
+                    cursor.execute("""
+                        SELECT TABLE_SCHEMA, TABLE_NAME 
+                        FROM INFORMATION_SCHEMA.TABLES 
+                        WHERE TABLE_TYPE = 'BASE TABLE'
+                    """)
+                    return [{"schema": row.TABLE_SCHEMA, "table": row.TABLE_NAME} for row in cursor.fetchall()]
         except Exception as e:
             raise OperationError(f"Failed to get table list: {str(e)}")
 
-    def get_table_info(self, table_name):
+    def get_table_info(self, schema: str, table: str) -> Dict[str, Any]:
         try:
             with self._get_connection() as conn:
                 with conn.cursor() as cursor:
@@ -54,20 +57,23 @@ class MSSQLOperations(DatabaseOperations):
                                 JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ku
                                     ON tc.CONSTRAINT_NAME = ku.CONSTRAINT_NAME
                                 WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
+                                AND ku.TABLE_SCHEMA = ?
                                 AND ku.TABLE_NAME = ?
                             ) pk ON c.COLUMN_NAME = pk.COLUMN_NAME
                         WHERE 
-                            c.TABLE_NAME = ?
-                    """, (table_name, table_name))
+                            c.TABLE_SCHEMA = ? AND c.TABLE_NAME = ?
+                    """, (schema, table, schema, table))
                     columns = cursor.fetchall()
                     return {
-                        'table_name': table_name,
+                        'schema': schema,
+                        'table_name': table,
+                        'full_name': f"{schema}.{table}",
                         'columns': [
                             {
-                                'name': col[0],
-                                'type': col[1],
-                                'nullable': col[2] == 'YES',
-                                'primary_key': col[3] == 1
+                                'name': col.COLUMN_NAME,
+                                'type': col.DATA_TYPE,
+                                'nullable': col.IS_NULLABLE == 'YES',
+                                'primary_key': col.IS_PRIMARY_KEY == 1
                             } for col in columns
                         ]
                     }
@@ -83,35 +89,13 @@ class MSSQLOperations(DatabaseOperations):
                     column_names = [column[0] for column in cursor.description]
                     return results, column_names
         except Exception as e:
-            raise OperationError(f"Failed to execute query: {str(e)}") from e
+            raise OperationError(f"Failed to execute query: {str(e)}")
 
-    def execute_query(self, query: str) -> str:
+    def execute_query(self, query: str) -> List[Tuple]:
         try:
             with self._get_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(query)
-                    results = cursor.fetchall()
-                    return results
+                    return cursor.fetchall()
         except Exception as e:
             raise OperationError(f"Failed to execute query: {str(e)}")
-
-    def get_schema_info(self) -> str:
-        try:
-            with self._get_connection() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute("""
-                        SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE 
-                        FROM INFORMATION_SCHEMA.COLUMNS 
-                        ORDER BY TABLE_NAME, ORDINAL_POSITION
-                    """)
-                    results = cursor.fetchall()
-                    schema_info = []
-                    current_table = ""
-                    for row in results:
-                        if row[0] != current_table:
-                            current_table = row[0]
-                            schema_info.append(f"\nTable: {current_table}")
-                        schema_info.append(f"  {row[1]} ({row[2]})")
-                    return "\n".join(schema_info)
-        except Exception as e:
-            raise OperationError(f"Failed to get schema info: {str(e)}")
