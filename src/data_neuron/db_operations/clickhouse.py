@@ -1,6 +1,6 @@
 from .base import DatabaseOperations
 from .exceptions import ConnectionError, OperationError
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Any
 
 
 class ClickHouseOperations(DatabaseOperations):
@@ -29,45 +29,45 @@ class ClickHouseOperations(DatabaseOperations):
 
     def get_table_list(self) -> List[Dict[str, str]]:
         try:
-            with self._get_connection() as client:
-                result = client.execute("SHOW TABLES")
-                return [{"schema": self.conn_params['database'], "table": table[0]} for table in result]
+            client = self._get_connection()
+            result = client.query("SHOW TABLES")
+            return [{"schema": self.conn_params.get('database', 'default'), "table": table[0]} for table in result.result_rows]
         except Exception as e:
             raise OperationError(f"Failed to get table list: {str(e)}")
 
     def get_table_info(self, schema: str, table: str) -> Dict[str, Any]:
         try:
-            with self._get_connection() as client:
-                result = client.execute(f"DESCRIBE {table}")
-                return {
-                    'schema': schema,
-                    'table_name': table,
-                    'full_name': f"{schema}.{table}",
-                    'columns': [
-                        {
-                            'name': col[0],
-                            'type': col[1],
-                            'nullable': col[5] == 'YES',
-                            'primary_key': False  # ClickHouse doesn't have a direct concept of primary keys
-                        } for col in result
-                    ]
-                }
+            client = self._get_connection()
+            result = client.query(f"DESCRIBE {schema}.{table}")
+            return {
+                'schema': schema,
+                'table_name': table,
+                'full_name': f"{schema}.{table}",
+                'columns': [
+                    {
+                        'name': col[0],
+                        'type': col[1],
+                        'nullable': col[5] == 'YES',
+                        # ClickHouse uses 'key' to indicate primary key columns
+                        'primary_key': col[2] == 'key'
+                    } for col in result.result_rows
+                ]
+            }
         except Exception as e:
             raise OperationError(f"Failed to get table info: {str(e)}")
 
     def execute_query_with_column_names(self, query: str) -> Tuple[List[Tuple], List[str]]:
         try:
-            with self._get_connection() as client:
-                result = client.execute(query, with_column_types=True)
-                rows, column_types = result
-                column_names = [col[0] for col in column_types]
-                return rows, column_names
+            client = self._get_connection()
+            result = client.query(query)
+            return result.result_rows, result.column_names
         except Exception as e:
             raise OperationError(f"Failed to execute query: {str(e)}")
 
     def execute_query(self, query: str) -> List[Tuple]:
         try:
-            with self._get_connection() as client:
-                return client.execute(query)
+            client = self._get_connection()
+            result = client.query(query)
+            return result.result_rows
         except Exception as e:
             raise OperationError(f"Failed to execute query: {str(e)}")
