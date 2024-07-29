@@ -17,13 +17,20 @@ def load_context():
     tables_path = os.path.join('context', 'tables')
     for filename in os.listdir(tables_path):
         if filename.endswith('.yaml'):
-            with open(os.path.join(tables_path, filename), 'r') as f:
-                table_data = yaml.safe_load(f)
-                # Default to 'main' if schema is not specified
-                schema_name = table_data.get('schema', 'main')
-                table_name = table_data['table_name']
-                full_name = f"{schema_name}.{table_name}"
-                context['tables'][full_name] = table_data
+            file_path = os.path.join(tables_path, filename)
+            if os.path.getsize(file_path) > 0:  # Check if file is not empty
+                with open(file_path, 'r') as f:
+                    table_data = yaml.safe_load(f)
+                    if table_data and isinstance(table_data, dict):
+                        full_name = table_data.get('full_name')
+                        if full_name:
+                            context['tables'][full_name] = table_data
+                        else:
+                            print(
+                                f"Warning: 'full_name' not found in {filename}. Skipping this table.")
+                    else:
+                        print(
+                            f"Warning: Invalid or empty YAML content in {filename}. Skipping this table.")
 
     # Load relationships
     relationships_path = os.path.join('context', 'relationships.yaml')

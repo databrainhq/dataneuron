@@ -1,17 +1,10 @@
 def table_yaml_prompt(table_info, db_type):
-    schema_instruction = {
-        "mysql": "# MySQL doesn't use schemas in the same way, leave this blank",
-        "mssql": "# For MSSQL, typically use 'dbo' unless specified otherwise",
-        "postgres": "# For PostgreSQL, typically use 'public' unless specified otherwise",
-        "sqlite": "# SQLite doesn't use schemas, leave this blank",
-        "duckdb": "# DuckDB uses 'main' as the default schema"
-    }.get(db_type, "# Specify the schema if applicable for your database")
 
     return f"""Generate a YAML file for the following table, targeting a {db_type} database:
 {table_info}
 Follow this structure:
 table_name: <name>
-schema_name: <name>  {schema_instruction}
+schema_name: <name>  
 full_name: <schema_name>.<table_name>
 description: <brief description>
 alias: <short alias>

@@ -25,9 +25,8 @@ class LLMQueryRefiner:
     def get_sample_data(self) -> str:
         sample_data = "Sample Data:\n"
         for full_table_name in self.context['tables']:
-            schema, table = full_table_name.split('.')
             query = top_few_records(
-                self.db_helper, "*", schema, table, limit=5)
+                self.db_helper, "*", full_table_name, limit=5)
             result = self.db.execute_query(query)
             sample_data += f"Table: {full_table_name}\n"
             for row in result:
@@ -38,12 +37,10 @@ class LLMQueryRefiner:
         refined_entities = []
         invalid_entities = []
         for entity in entities:
-            schema, table = entity['table'].split('.')
             query = top_few_records(
                 self.db_helper,
                 entity['column'],
-                schema,
-                table,
+                entity['table'],
                 entity['potential_value']
             )
             results = self.db.execute_query(query)

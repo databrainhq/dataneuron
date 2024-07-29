@@ -1,6 +1,6 @@
 from .base import DatabaseOperations
 from .exceptions import ConnectionError, OperationError
-from typing import List, Tuple, Dict, Any
+from typing import List, Dict, Any, Tuple
 
 
 class MSSQLOperations(DatabaseOperations):
@@ -48,21 +48,24 @@ class MSSQLOperations(DatabaseOperations):
                             c.COLUMN_NAME, 
                             c.DATA_TYPE,
                             c.IS_NULLABLE,
-                            CASE WHEN pk.COLUMN_NAME IS NOT NULL THEN 1 ELSE 0 END AS IS_PRIMARY_KEY
-                        FROM 
-                            INFORMATION_SCHEMA.COLUMNS c
-                            LEFT JOIN (
-                                SELECT ku.COLUMN_NAME
-                                FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
-                                JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ku
-                                    ON tc.CONSTRAINT_NAME = ku.CONSTRAINT_NAME
-                                WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
-                                AND ku.TABLE_SCHEMA = ?
-                                AND ku.TABLE_NAME = ?
-                            ) pk ON c.COLUMN_NAME = pk.COLUMN_NAME
-                        WHERE 
-                            c.TABLE_SCHEMA = ? AND c.TABLE_NAME = ?
-                    """, (schema, table, schema, table))
+                            COLUMNPROPERTY(OBJECT_ID('{schema}.{table}'), c.COLUMN_NAME, 'IsIdentity') as IS_IDENTITY,
+                            CASE 
+                                WHEN pk.COLUMN_NAME IS NOT NULL THEN 'PRI' 
+                                ELSE '' 
+                            END AS COLUMN_KEY
+                        FROM INFORMATION_SCHEMA.COLUMNS c
+                        LEFT JOIN (
+                            SELECT ku.COLUMN_NAME
+                            FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS AS tc
+                            JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE AS ku
+                                ON tc.CONSTRAINT_TYPE = 'PRIMARY KEY' 
+                                AND tc.CONSTRAINT_NAME = ku.CONSTRAINT_NAME
+                            WHERE ku.TABLE_SCHEMA='{schema}'
+                            AND ku.TABLE_NAME='{table}'
+                        ) pk ON c.COLUMN_NAME = pk.COLUMN_NAME
+                        WHERE c.TABLE_SCHEMA = '{schema}'
+                        AND c.TABLE_NAME = '{table}'
+                    """)
                     columns = cursor.fetchall()
                     return {
                         'schema': schema,
@@ -73,7 +76,7 @@ class MSSQLOperations(DatabaseOperations):
                                 'name': col.COLUMN_NAME,
                                 'type': col.DATA_TYPE,
                                 'nullable': col.IS_NULLABLE == 'YES',
-                                'primary_key': col.IS_PRIMARY_KEY == 1
+                                'primary_key': col.COLUMN_KEY == 'PRI' or col.IS_IDENTITY == 1
                             } for col in columns
                         ]
                     }
