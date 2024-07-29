@@ -39,6 +39,15 @@ def get_db_config(db_type):
             })
         elif db_type == 'csv':
             config['database']['data_directory'] = '${DATA_DIRECTORY}'
+        elif db_type == 'clickhouse':
+            config['database'].update({
+                'host': '${CLICKHOUSE_HOST}',
+                'port': '${CLICKHOUSE_PORT}',
+                'user': '${CLICKHOUSE_USER}',
+                'password': '${CLICKHOUSE_PASSWORD}'
+            })
+            if confirm_with_user("Does your ClickHouse.cloud setup use a specific database?"):
+                config['database']['database'] = '${CLICKHOUSE_DATABASE}'
 
         print_info("Please set the following environment variables:")
         for key, value in config['database'].items():
@@ -73,6 +82,16 @@ def get_db_config(db_type):
         elif db_type == 'csv':
             config['database']['data_directory'] = click.prompt(
                 "Enter the directory path containing your CSV/Parquet files", type=str)
+        elif db_type == 'clickhouse':
+            config['database'].update({
+                'host': click.prompt("Enter the host", type=str),
+                'port': click.prompt("Enter the port", type=int, default=8443),
+                'user': click.prompt("Enter the username", type=str),
+                'password': click.prompt("Enter the password", type=str, hide_input=True)
+            })
+            if confirm_with_user("Does your ClickHouse.cloud setup use a specific database?"):
+                config['database']['database'] = click.prompt(
+                    "Enter the database name", type=str)
 
     return config
 

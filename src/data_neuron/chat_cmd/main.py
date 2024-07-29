@@ -93,7 +93,9 @@ def process_with_llm(query: str, context: dict, chat_history: list):
         'db_result': None,
         'sql_query': None,
         'context': context,
-        'execution_complete': threading.Event()
+        'execution_complete': threading.Event(),
+        'processing': False,
+        'query_executed': False
     }
 
     db_thread = threading.Thread(
@@ -105,8 +107,9 @@ def process_with_llm(query: str, context: dict, chat_history: list):
         process_simplified_xml(chunk, state)
         assistant_response += chunk
 
-    if state['sql_query']:
+    if state['sql_query'] and not state['query_executed']:
         state['sql_queue'].put(state['sql_query'])
+        state['query_executed'] = True
     else:
         state['sql_queue'].put(None)
 

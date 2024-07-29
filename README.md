@@ -23,7 +23,7 @@ there by letting an AI agent with general intelligence to be Data Intelligent sp
 
 ## Features
 
-- Support for multiple database types (SQLite, PostgreSQL, MySQL, MSSQL, CSV files(through duckdb))
+- Support for multiple database types (SQLite, PostgreSQL, MySQL, MSSQL, CSV files(through duckdb), Clickhouse)
 - Natural language to SQL query conversion
 - Interactive chat mode for continuous database querying
 - Automatic context generation from database schema
@@ -69,6 +69,12 @@ Data Neuron can be installed with different database support options:
 
    ```
    pip install dataneuron[csv]
+   ```
+
+7. With Clickhouse support:
+
+   ```
+   pip install dataneuron[clickhouse]
    ```
 
 Note: if you use zsh, you might have to use quotes around the package name like. For csv right now it doesn't

@@ -6,13 +6,13 @@ from .chat_cmd.main import start_chat  # New import for chat functionality
 from .report_cmd.main import generate_report  # New import
 
 
-VERSION = "0.1.5"  # Update this as you release new versions
+VERSION = "0.1.6"  # Update this as you release new versions
 
 
 @click.command()
 @click.option('--init', is_flag=True, help='Initialize the context.')
 # @click.option('--ask', help='The question you want to ask about the database.')
-@click.option('--db-init', type=click.Choice(['sqlite', 'mysql', 'mssql', 'postgres', 'csv']), help='Initialize database configuration.')
+@click.option('--db-init', type=click.Choice(['sqlite', 'mysql', 'mssql', 'postgres', 'csv', 'clickhouse']), help='Initialize database configuration.')
 # New option for chat
 @click.option('--chat', is_flag=True, help='Start an interactive chat session.')
 @click.option('--version', is_flag=True, help='Show the version of the tool')
