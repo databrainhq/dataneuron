@@ -4,13 +4,14 @@ from .context_loader import load_context
 from .api.main import call_neuron_api
 from .db_operations.factory import DatabaseFactory
 from .db_operations.database_helpers import DatabaseHelper, top_few_records
-from .utils.print import print_info, print_prompt
+from .utils.print import print_info, print_prompt, print_warning
 
 
 class LLMQueryRefiner:
     def __init__(self, context):
         self.context = context
         self.db = DatabaseFactory.get_database()
+        self.explanation = ""
         self.db_helper = DatabaseHelper(
             self.context['database'], self.db)
 
@@ -58,7 +59,7 @@ class LLMQueryRefiner:
         is_valid = len(invalid_entities) == 0
         return is_valid, refined_entities, invalid_entities
 
-    def refine_query(self, user_query: str) -> Tuple[str, List[str], List[Dict], List[Dict]]:
+    def refine_query(self, user_query: str) -> Tuple[str, List[str], List[Dict], List[Dict], bool]:
         schema_info = self.get_schema_info()
         sample_data = self.get_sample_data()
 
@@ -72,19 +73,26 @@ class LLMQueryRefiner:
         The user has asked the following question:
         "{user_query}"
 
-        Please refine this query to align it with the database structure. Your task is to:
-        1. Identify any terms that might correspond to schema names, table names, column names, or data values.
-        2. Replace any ambiguous or colloquial terms with their corresponding database terms.
-        3. Resolve any multi-word phrases that might represent a single entity in the database.
-        4. Provide a list of changes made to the original query.
-        5. Identify specific entities (column values) that need to be validated against the database.
-        6. Use phrases like "containing", for potential matches.
-        7. If there are no specific column values to validate, return an empty array for entities.
-        8. Always use fully qualified table names (schema.table) in your refined query and explanations.
+        Please analyze if this query can be answered using the given database schema. If it can be answered, refine the query to align it with the database structure. If it cannot be answered, explain why.
+
+        Your task is to:
+        1. Determine if the query can be answered using the given schema.
+        2. If it can be answered:
+           a. Identify any terms that might correspond to schema names, table names, column names, or data values.
+           b. Replace any ambiguous or colloquial terms with their corresponding database terms.
+           c. Resolve any multi-word phrases that might represent a single entity in the database.
+           d. Provide a list of changes made to the original query.
+           e. Identify specific entities (column values) that need to be validated against the database.
+           f. Use phrases like "containing", for potential matches.
+           g. If there are no specific column values to validate, return an empty array for entities.
+           h. Always use fully qualified table names (schema.table) in your refined query and explanations.
+        3. If it cannot be answered, provide a clear explanation why.
 
         Return your response in the following JSON format:
         {{
-            "refined_query": "Your refined query here",
+            "can_be_answered": true/false,
+            "explanation": "Your explanation here",
+            "refined_query": "Your refined question here (if applicable)",
             "changes": [
                 "Change 1",
                 "Change 2",
@@ -107,12 +115,18 @@ class LLMQueryRefiner:
 
         try:
             parsed_response = json.loads(response)
+            can_be_answered = parsed_response['can_be_answered']
+            self.explanation = parsed_response['explanation']
+
+            if not can_be_answered:
+                return user_query, [], [], [], False
+
             refined_query = parsed_response['refined_query']
             changes = parsed_response['changes']
             entities = parsed_response.get('entities', [])
         except (json.JSONDecodeError, KeyError):
             print("Error: Invalid response from LLM.")
-            return user_query, [], [], []
+            return user_query, [], [], [], False
 
         if entities:
             is_valid, refined_entities, invalid_entities = self.validate_and_refine_entities(
@@ -123,7 +137,7 @@ class LLMQueryRefiner:
         else:
             is_valid, refined_entities, invalid_entities = True, [], []
 
-        return refined_query, changes, refined_entities, invalid_entities
+        return refined_query, changes, refined_entities, invalid_entities, True
 
     def further_refine_query(self, query: str, refined_entities: List[Dict]) -> str:
         for entity in refined_entities:
@@ -142,10 +156,16 @@ class LLMQueryRefiner:
         return query
 
 
-def process_query(user_query: str, context: Dict) -> str:
+def process_query(user_query: str, context: Dict) -> Tuple[str, bool]:
     refiner = LLMQueryRefiner(context)
-    refined_query, changes, refined_entities, invalid_entities = refiner.refine_query(
+    refined_query, changes, refined_entities, invalid_entities, can_be_answered = refiner.refine_query(
         user_query)
+
+    if not can_be_answered:
+        print_warning(
+            "The query cannot be answered under the current context.")
+        print_info("Explanation: " + refiner.explanation)
+        return refiner.explanation, False
 
     if changes:
         print("We've made the following adjustments to your query:")
@@ -172,4 +192,4 @@ def process_query(user_query: str, context: Dict) -> str:
 
     print_info(f"\nRefined query: {refined_query}\n")
 
-    return refined_query
+    return refined_query, True

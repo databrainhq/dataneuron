@@ -209,6 +209,9 @@ def sql_query_prompt(query, context):
     2. A list of the specific tables, columns, and definitions you referenced from the provided context.
     3. The SQL query to answer the user's question.
 
+    IMPORTANT: Only use tables and columns that are explicitly defined in the provided context.
+    Do not assume the existence of any tables or columns that are not listed.
+
     SQL query guidelines:
     - Only generate SELECT statements, non-write, non-destructive queries.
     - Only reference tables, coilumns given in the context.

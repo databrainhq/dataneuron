@@ -94,7 +94,12 @@ def process_with_llm(query: str, context: dict, chat_history: list):
     print_header("DATA neuron is thinking...")
     print_prompt("🤖 Sending request to LLM\n")
     print_info("Rephrasing the question suited for db")
-    changed_query = process_query(query, context)
+    changed_query, can_be_answered = process_query(query, context)
+
+    if not can_be_answered:
+        print_warning("Unable to process the query. Exiting.")
+        return None, changed_query, None
+
     prompt = sql_query_prompt(changed_query, context)
     system_prompt = "You are a helpful assistant that generates SQL queries based on natural language questions and maintains context throughout the conversation."
 
