@@ -8,8 +8,8 @@ from .utils.print import print_info, print_prompt
 
 
 class LLMQueryRefiner:
-    def __init__(self):
-        self.context = load_context()
+    def __init__(self, context):
+        self.context = context
         self.db = DatabaseFactory.get_database()
         self.db_helper = DatabaseHelper(
             self.context['database'], self.db)
@@ -142,8 +142,8 @@ class LLMQueryRefiner:
         return query
 
 
-def process_query(user_query: str) -> str:
-    refiner = LLMQueryRefiner()
+def process_query(user_query: str, context: Dict) -> str:
+    refiner = LLMQueryRefiner(context)
     refined_query, changes, refined_entities, invalid_entities = refiner.refine_query(
         user_query)
 

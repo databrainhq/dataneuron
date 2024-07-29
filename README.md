@@ -4,13 +4,9 @@ Data Neuron is a powerful AI-driven data framework to create and maintain AI DAT
 
 Supports SQLite, PostgreSQL, MySQL, MSSQL, CSV files(through duckdb). Works with major LLMs like Claude (default), OpenAI, LLAMA etc(through groq, nvidia, ..), OLLAMA.
 
-
 https://github.com/user-attachments/assets/2301e7cd-a895-4b9b-8a8f-2f30c3e02e16
 
-
 https://github.com/user-attachments/assets/5f6ed1f2-58cd-4e75-ae0b-745f7177a746
-
-
 
 ### The framework:
 
@@ -102,14 +98,23 @@ pip install "dataneuron[mysql]"
    dnn --init
    ```
 
-   This will create YAML files in the `context/` directory which will be your semantic layer for your data.
+   This will prompt for a context name, you can give `product_analytics` or `customer_success` or any and it will then create YAML files in the `context/<contextname>` directory which will be your semantic layer for your data.
    You will be told to select couple of tables, so that it can be auto-labelled which you can edit later.
 
 3. Or start an interactive chat session:
 
    ```
-   dnn --chat
+   dnn --chat <context_name>
    ```
+
+   eg:
+
+   ```
+   dnn --chat product_analytics
+   ```
+
+   You can chat with the semantic layer that you have created. And you will also be able to save the metric
+   to a dashboard, this will get created under `dashboards/<dashname>.yml`
 
 4. You can generate reports with image as input for your dashboards. You need to have `wkhtmltopdf` in your system.
    For mac

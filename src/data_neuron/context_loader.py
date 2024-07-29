@@ -5,7 +5,7 @@ from .db_operations.exceptions import ConfigurationError
 CONFIG_PATH = 'database.yaml'
 
 
-def load_context():
+def load_context(context_name):
     context = {
         'tables': {},
         'relationships': {},
@@ -13,8 +13,10 @@ def load_context():
         'database': {}
     }
 
+    context_dir = os.path.join('context', context_name)
+
     # Load table-specific context
-    tables_path = os.path.join('context', 'tables')
+    tables_path = os.path.join(context_dir, 'tables')
     for filename in os.listdir(tables_path):
         if filename.endswith('.yaml'):
             file_path = os.path.join(tables_path, filename)
@@ -33,13 +35,13 @@ def load_context():
                             f"Warning: Invalid or empty YAML content in {filename}. Skipping this table.")
 
     # Load relationships
-    relationships_path = os.path.join('context', 'relationships.yaml')
+    relationships_path = os.path.join(context_dir, 'relationships.yaml')
     if os.path.exists(relationships_path):
         with open(relationships_path, 'r') as f:
             context['relationships'] = yaml.safe_load(f)
 
     # Load global definitions
-    definitions_path = os.path.join('context', 'definitions.yaml')
+    definitions_path = os.path.join(context_dir, 'definitions.yaml')
     if os.path.exists(definitions_path):
         with open(definitions_path, 'r') as f:
             context['global_definitions'] = yaml.safe_load(f)

@@ -34,12 +34,23 @@ def list_dashboards():
     return [f.split('.')[0] for f in os.listdir(dashboards_dir) if f.endswith('.yml')]
 
 
-def start_chat():
+def start_chat(context_name=None):
     print_header("Starting DATA neuron chat session...")
     print_warning(
-        "Please remember your messages and result wll be sent to LLM for API call.")
-    print_info("🗄️ Fetching the context from your context folder\n")
-    context = load_context()
+        "Please remember your messages and result will be sent to LLM for API call.")
+
+    if context_name is None:
+        context_name = styled_prompt(
+            "Please enter the name of the context you want to use")
+
+    context_dir = os.path.join('context', context_name)
+    if not os.path.exists(context_dir):
+        print_warning(
+            f"Context '{context_name}' does not exist. Please create it using 'dnn --init' first.")
+        return
+
+    print_info(f"🗄️ Fetching the context from {context_dir}\n")
+    context = load_context(context_name)
     print_success("Context is loaded!\n")
 
     chat_history = []
@@ -83,7 +94,7 @@ def process_with_llm(query: str, context: dict, chat_history: list):
     print_header("DATA neuron is thinking...")
     print_prompt("🤖 Sending request to LLM\n")
     print_info("Rephrasing the question suited for db")
-    changed_query = process_query(query)
+    changed_query = process_query(query, context)
     prompt = sql_query_prompt(changed_query, context)
     system_prompt = "You are a helpful assistant that generates SQL queries based on natural language questions and maintains context throughout the conversation."
 
