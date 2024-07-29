@@ -44,6 +44,15 @@ class DatabaseFactory:
             elif db_type == 'csv':
                 from .duckdb import DuckDBOperations
                 return DuckDBOperations(db_config.get('data_directory'))
+            elif db_type == 'clickhouse':
+                from .clickhouse import ClickHouseOperations
+                return ClickHouseOperations(
+                    host=db_config.get('host'),
+                    port=db_config.get('port'),
+                    user=db_config.get('user'),
+                    password=db_config.get('password'),
+                    database=db_config.get('database')
+                )
             else:
                 raise ConfigurationError(
                     f"Unsupported database type: {db_type}")

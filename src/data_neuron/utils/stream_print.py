@@ -14,7 +14,10 @@ def process_simplified_xml(chunk, state):
         click.echo(click.style("\nGenerated SQL Query:", fg="blue", bold=True))
         click.echo(sql_content)
         state['buffer'] = state['buffer'][sql_match.end():]
-        state['sql_queue'].put(sql_content)
+        if sql_content and not state['query_executed']:
+            state['sql_query'] = sql_content
+            state['sql_queue'].put(sql_content)
+            state['query_executed'] = True
 
     # Process explanation tag
     explanation_match = re.search(

@@ -7,6 +7,8 @@ from ..utils.date_functions import date_functions
 def get_date_format_functions(database):
     if database == "mysql":
         return "DATE_FORMAT, QUARTER(), YEAR()... etc"
+    elif database == "clickhouse":
+        return "formatDateTime, toQuarter, toYear... etc"
     else:
         return "TO_CHAR"
 
@@ -18,16 +20,13 @@ def get_json_extract_functions(database):
         return "JSON_EXTRACT, JSON_UNQUOTE"
     elif database == "mssql":
         return "JSON_VALUE, JSON_QUERY"
+    elif database == "clickhouse":
+        return "JSONExtractString, JSONExtract"
     else:
         return "json extract function"
 
 
 def get_date_functions(db_name):
-    if db_name in [
-        "postgres",
-    ]:
-        db_name = "postgres"
-
     if db_name in date_functions:
         return json.dumps(date_functions[db_name], indent=2)
     else:
@@ -148,6 +147,24 @@ def get_sql_rules(db):
         
         Remember, proper date handling and casting is crucial for correct query execution in DuckDB, especially when working with CSV data.
     """
+
+    elif db == "clickhouse":
+        return common_rules + """
+        - Identifiers are case-sensitive. Always enclose them in backticks (`).
+        - Schema usage: ClickHouse uses databases, not schemas.
+          - Specify the database name before the table name: `database_name`.`table_name`
+        - Example: SELECT `table_alias`.`column_name` AS `column_alias` FROM `database_name`.`table_name` AS `table_alias`
+        - Use FINAL keyword after table name to get the latest version of data in tables with ReplacingMergeTree engine.
+        - For JSON operations, use JSONExtractString() or JSONExtract().
+        - Use toDate(), toDateTime() for date and time conversions.
+        - Utilize ClickHouse-specific functions like arrayJoin() for working with array columns.
+        - For full-text search, consider using the ClickHouse-specific trigram index.
+        - Use materialized views for precomputing complex aggregations.
+        - Take advantage of ClickHouse's columnar storage by minimizing the number of columns in your queries.
+        - Use PREWHERE for more efficient filtering on large tables.
+        - Prefer using Int64 for numeric types when possible, as it's more efficient in ClickHouse.
+        - Use LowCardinality data type for columns with a small number of frequently occurring string values.
+        """
     else:
         return "Database type not recognized. Please specify 'postgres', 'mysql', 'mssql', or 'sqlite' or 'csv'"
 
