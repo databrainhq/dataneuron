@@ -15,6 +15,24 @@ Currently supports SQLite, PostgreSQL, MySQL, MSSQL, CSV files(through duckdb), 
 - Get html pdf reports for your dashboard: `dnn --report`
 - Run the API server to access chat, reports, dashboards, metrics: `dnn --server` (See API section for more)
 - Deploy the server through AWS lambda or traditional VPS machine.
+- If you have an existing Django or Flask or python project you can use this project as a library with functions like `process_chat` available.
+
+
+#### Base setup
+https://github.com/user-attachments/assets/2108cce7-c48c-4a45-b1c6-f7bde71c635c
+
+#### Reports pdf
+
+https://github.com/user-attachments/assets/de71a220-4bd9-4f53-b245-064fcaca85bb
+
+
+### As API
+
+https://github.com/user-attachments/assets/0fd477cd-ef8b-44ed-993a-b1ad16cfd82a
+
+
+https://github.com/user-attachments/assets/8d363c0a-e12a-47ff-b4e4-e5f0bf302224
+
 
 
 ## Features
@@ -28,7 +46,7 @@ Currently supports SQLite, PostgreSQL, MySQL, MSSQL, CSV files(through duckdb), 
 - Support for various LLM providers (Claude, OpenAI, Azure, Custom, Ollama)
 - Optimized for smaller database subsets (up to 10-15 tables)
 - API server that can be deployed to AWS lambda or traditional server that support python flask.
-- Through API you can list the /dashboards, metrics and also query individual metirc and also chat with your context and generate feature rich HTML report
+- Through API you can list the /dashboards, metrics and also query individual metric and also chat with your context and generate feature rich HTML report
 
 ## Installation
 
@@ -76,11 +94,18 @@ Data Neuron can be installed with different database support options:
    pip install dataneuron[clickhouse]
    ```
 
+
 Note: if you use zsh, you might have to use quotes around the package name like. For csv right now it doesn't
 support nested folder structure just a folder with csv files, each csv will be treated as a table.
 
 ```
 pip install "dataneuron[mysql]"
+```
+
+If you wanted the report generation with pdf in your cli, you have to include `pdf` along with your db as extra dependencies.
+
+```
+  pip install "dataneuron[mssql,pdf]"
 ```
 
 ## Quick Start
