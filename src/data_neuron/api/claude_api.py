@@ -138,7 +138,6 @@ def stream_claude_response(query: str, chat_history: Optional[list] = None, inst
         'max_tokens': MAX_TOKENS,
         'stream': True
     }
-    print("messages", messages)
     try:
         response = make_api_call(data, headers, stream=True)
         for line in response.iter_lines():
@@ -153,5 +152,4 @@ def stream_claude_response(query: str, chat_history: Optional[list] = None, inst
                         break
 
     except Exception as e:
-        logger.error(f"Error in stream_claude_response: {e}")
         yield f"Error: {str(e)}"

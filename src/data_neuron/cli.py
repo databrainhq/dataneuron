@@ -6,7 +6,7 @@ from .chat_cmd.main import start_chat  # New import for chat functionality
 from .report_cmd.main import generate_report  # New import
 from .server import run_server
 
-VERSION = "0.1.7"  # Update this as you release new versions
+VERSION = "0.2.0"  # Update this as you release new versions
 
 
 @click.command()
