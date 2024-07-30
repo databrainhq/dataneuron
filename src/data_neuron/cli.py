@@ -4,7 +4,7 @@ from .context_init_cmd.main import init_context
 from .db_init_cmd.main import init_database_config
 from .chat_cmd.main import start_chat  # New import for chat functionality
 from .report_cmd.main import generate_report  # New import
-
+from .server import run_server
 
 VERSION = "0.1.7"  # Update this as you release new versions
 
@@ -18,7 +18,11 @@ VERSION = "0.1.7"  # Update this as you release new versions
 @click.option('--version', is_flag=True, help='Show the version of the tool')
 # New option
 @click.option('--report', is_flag=True, help='Generate a dashboard report.')
-def cli(init, db_init, chat, version, report):
+@click.option('--server', is_flag=True, help='Start the Flask API server.')
+@click.option('--prod', is_flag=True, help='Run the server in production mode.')
+@click.option('--host', default='0.0.0.0', help='Host to run the server on')
+@click.option('--port', type=int, default=8040, help='Port to run the server on')
+def cli(init, db_init, chat, version, report, server, prod, host, port):
     if init:
         init_context()
     # elif ask:
@@ -32,6 +36,11 @@ def cli(init, db_init, chat, version, report):
         return
     elif report:
         generate_report()
+    elif server:
+        debug = not prod
+        if prod:
+            os.environ['FLASK_ENV'] = 'production'
+        run_server(host=host, port=port, debug=debug)
     else:
         click.echo(cli.get_help(click.get_current_context()))
 

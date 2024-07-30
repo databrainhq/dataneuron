@@ -138,14 +138,20 @@ def stream_claude_response(query: str, chat_history: Optional[list] = None, inst
         'max_tokens': MAX_TOKENS,
         'stream': True
     }
-    response = make_api_call(data, headers, stream=True)
-    for line in response.iter_lines():
-        if line:
-            line = line.decode('utf-8')
-            if line.startswith('data: '):
-                data = json.loads(line[6:])
-                if data['type'] == 'content_block_delta':
-                    chunk = data['delta']['text']
-                    yield chunk
-                elif data['type'] == 'message_stop':
-                    break
+    print("messages", messages)
+    try:
+        response = make_api_call(data, headers, stream=True)
+        for line in response.iter_lines():
+            if line:
+                line = line.decode('utf-8')
+                if line.startswith('data: '):
+                    data = json.loads(line[6:])
+                    if data['type'] == 'content_block_delta':
+                        chunk = data['delta']['text']
+                        yield chunk
+                    elif data['type'] == 'message_stop':
+                        break
+
+    except Exception as e:
+        logger.error(f"Error in stream_claude_response: {e}")
+        yield f"Error: {str(e)}"

@@ -34,6 +34,56 @@ def list_dashboards():
     return [f.split('.')[0] for f in os.listdir(dashboards_dir) if f.endswith('.yml')]
 
 
+def process_chat_message(message, context_name, chat_history=None):
+    if context_name is None:
+        context_name = 'default'  # You might want to change this to a more appropriate default
+
+    context_dir = os.path.join('context', context_name)
+    if not os.path.exists(context_dir):
+        return {"error": f"Context '{context_name}' does not exist. Please create it using 'dnn --init' first."}
+
+    context = load_context(context_name)
+
+    if chat_history is None:
+        chat_history = []
+
+    sql_query, db_result, changed_query = process_with_llm(
+        message, context, chat_history)
+
+    if not sql_query:
+        return {
+            "reason": db_result
+        }
+    response = {
+        "original_query": message,
+        "changed_query": changed_query,
+        "sql_query": sql_query,
+        "result": format_db_result(db_result)
+    }
+
+    return response
+
+
+def format_db_result(db_result):
+    if not db_result:
+        return "No results found."
+
+    result, column_names = db_result
+
+    if isinstance(result, str):  # This is an error message
+        return result
+    elif len(result) == 1 and len(result[0]) == 1:
+        # Single value result
+        value = result[0][0]
+        return value
+    else:
+        # Multiple rows or columns
+        return {
+            "column_names": column_names,
+            "result": result
+        }
+
+
 def start_chat(context_name=None):
     print_header("Starting DATA neuron chat session...")
     print_warning(
