@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dataneuron"
-version = "0.2.1"
+version = "0.2.2"
 description = "An AI Data framework to create AI Data Analyst"
 authors = ["Vysakh Sreenivasan <srvysakh@gmail.com>"]
 license = "MIT"

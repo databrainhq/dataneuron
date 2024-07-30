@@ -5,6 +5,8 @@ from .ask_cmd.main import query as ask_query
 from .chat_cmd.main import process_chat_message
 from .db_operations.factory import DatabaseFactory
 from .report_cmd.main import generate_report_html, list_dashboards, load_dashboard
+import json
+import traceback
 import os
 
 app = Flask(__name__)
@@ -30,7 +32,9 @@ def chat():
     user_message = messages.pop(last_user_index)['content']
 
     response = process_chat_message(user_message, context_name, messages)
-    return jsonify({"response": response})
+    serializable_response = ensure_serializable(response)
+
+    return jsonify({"response": serializable_response})
 
 
 @app.route('/reports', methods=['POST'])
@@ -106,14 +110,17 @@ def execute_metric():
 
         if isinstance(result, tuple) and len(result) == 2:
             data, columns = result
+            # Convert Row objects to dictionaries
+            serializable_data = convert_to_serializable(data, columns)
             return jsonify({
                 "columns": columns,
-                "data": data
+                "data": serializable_data
             })
         else:
             return jsonify({"error": "Unexpected result format"}), 500
 
     except Exception as e:
+        print(traceback.format_exc())  # This will print the full stack trace
         return jsonify({"error": str(e)}), 500
 
 
@@ -123,3 +130,22 @@ def run_server(host='0.0.0.0', port=8084, debug=False):
 
 if __name__ == '__main__':
     run_server()
+
+
+def convert_to_serializable(data, columns):
+    return [dict(zip(columns, row)) for row in data]
+
+
+def ensure_serializable(obj):
+    try:
+        json.dumps(obj)
+        return obj
+    except (TypeError, OverflowError):
+        if isinstance(obj, dict):
+            return {k: ensure_serializable(v) for k, v in obj.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [ensure_serializable(item) for item in obj]
+        elif hasattr(obj, '__dict__'):
+            return ensure_serializable(obj.__dict__)
+        else:
+            return str(obj)
