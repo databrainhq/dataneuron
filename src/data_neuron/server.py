@@ -3,6 +3,7 @@ from .db_init_cmd.main import init_database_config
 from .context_init_cmd.main import init_context
 from .ask_cmd.main import query as ask_query
 from .chat_cmd.main import process_chat_message
+from .db_operations.factory import DatabaseFactory
 from .report_cmd.main import generate_report_html, list_dashboards, load_dashboard
 import os
 
@@ -69,6 +70,49 @@ def get_dashboard(dashboard_id):
             return jsonify(dashboard)
         else:
             return jsonify({"error": "Dashboard not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/execute-metric', methods=['POST'])
+def execute_metric():
+    try:
+        data = request.json
+        dashboard_id = data.get('dashboard_id')
+        metric_name = data.get('metric_name')
+        parameters = data.get('parameters', {})
+
+        if not dashboard_id or not metric_name:
+            return jsonify({"error": "dashboard_id and metric_name are required"}), 400
+
+        dashboard = load_dashboard(dashboard_id)
+        if not dashboard:
+            return jsonify({"error": "Dashboard not found"}), 404
+
+        metric = next(
+            (m for m in dashboard['metrics'] if m['name'] == metric_name), None)
+        if not metric:
+            return jsonify({"error": "Metric not found"}), 404
+
+        sql_query = metric['sql_query']
+
+        # Apply parameters to the SQL query
+        for key, value in parameters.items():
+            placeholder = f":{key}"
+            sql_query = sql_query.replace(placeholder, str(value))
+
+        db = DatabaseFactory.get_database()
+        result = db.execute_query_with_column_names(sql_query)
+
+        if isinstance(result, tuple) and len(result) == 2:
+            data, columns = result
+            return jsonify({
+                "columns": columns,
+                "data": data
+            })
+        else:
+            return jsonify({"error": "Unexpected result format"}), 500
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

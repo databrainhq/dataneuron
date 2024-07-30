@@ -52,13 +52,13 @@ def process_chat_message(message, context_name, chat_history=None):
 
     if not sql_query:
         return {
-            "reason": db_result
+            "error": db_result
         }
     response = {
-        "original_query": message,
-        "changed_query": changed_query,
+        "original_question": message,
+        "rephrased_question": changed_query,
         "sql_query": sql_query,
-        "result": format_db_result(db_result)
+        "data": format_db_result(db_result)
     }
 
     return response
