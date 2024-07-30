@@ -1,31 +1,34 @@
 # Data Neuron
 
-Data Neuron is a powerful AI-driven data framework to create and maintain AI DATA analyst.
+Data Neuron is a powerful AI-driven data framework to create and maintain AI DATA analyst through CLI and as an API.
 
-Supports SQLite, PostgreSQL, MySQL, MSSQL, CSV files(through duckdb). Works with major LLMs like Claude (default), OpenAI, LLAMA etc(through groq, nvidia, ..), OLLAMA.
+Use the API to let your business users chat with your Data through slack or teams or use for internally tools. Use the API to create dynamic feature rich (inspired by Claude Artifacts) html reports that you can send in email or slack.
 
-https://github.com/user-attachments/assets/2301e7cd-a895-4b9b-8a8f-2f30c3e02e16
+Currently supports SQLite, PostgreSQL, MySQL, MSSQL, CSV files(through duckdb), Clickhouse. Works with major LLMs like Claude (default), OpenAI, LLAMA etc(through groq, nvidia, ..), OLLAMA.
 
-https://github.com/user-attachments/assets/5f6ed1f2-58cd-4e75-ae0b-745f7177a746
+## Quick Usage
 
-### The framework:
+- Install `pip install dataneuron[mssql, pdf]`
+- Initialize database config: `dnn --db-init <database_type>`
+- Generate context: `dnn --init`
+- Start chat mode: `dnn --chat <contextname>` and save it as metrics to dashboards locally as yaml files.
+- Get html pdf reports for your dashboard: `dnn --report`
+- Run the API server to access chat, reports, dashboards, metrics: `dnn --server` (See API section for more)
+- Deploy the server through AWS lambda or traditional VPS machine.
 
-<img width="621" alt="Screenshot 2024-07-25 at 11 30 35 PM" src="https://github.com/user-attachments/assets/09353e34-a0f7-4650-b477-746eaf10c354">
-
-A small framework, Data Neuron is optimized for working with subsets of database, typically handling 10 to 15 tables.
-
-Data Neuron's objective is to give an ability to maintain and improve the semantic layer/knowledge graph,
-there by letting an AI agent with general intelligence to be Data Intelligent specific to your data.
 
 ## Features
 
 - Support for multiple database types (SQLite, PostgreSQL, MySQL, MSSQL, CSV files(through duckdb), Clickhouse)
 - Natural language to SQL query conversion
 - Interactive chat mode for continuous database querying
+- Multiple context management, you can create and manage multiple contexts for your customer_succes team, product team etc
 - Automatic context generation from database schema
 - Customizable context for improved query accuracy
 - Support for various LLM providers (Claude, OpenAI, Azure, Custom, Ollama)
 - Optimized for smaller database subsets (up to 10-15 tables)
+- API server that can be deployed to AWS lambda or traditional server that support python flask.
+- Through API you can list the /dashboards, metrics and also query individual metirc and also chat with your context and generate feature rich HTML report
 
 ## Installation
 
@@ -123,6 +126,14 @@ pip install "dataneuron[mysql]"
 brew install wkhtmltopdf
 ```
 
+And then you need to install the dataneuron package with that dependency
+
+```
+pip install dataneuron[postgres, pdf]
+```
+
+Assuming you wanted both postgres and pdf.
+
 ```
 dnn --report
 ```
@@ -173,68 +184,149 @@ DATA_NEURON_LLM=ollama
 DATA_NEURON_LLM_MODEL=your_preferred_local_model_here
 ```
 
-## Usage
+# Data Neuron API
 
-- Initialize database config: `dnn --db-init <database_type>`
-- Generate context: `dnn --init`
-- Start chat mode: `dnn --chat`
+## API Endpoints
 
-## Video Examples
+The Data Neuron API provides the following endpoints:
 
-### With CSV files
+1. **Chat**
 
-In this example there is a folder called `dataset-raw` with files like events.csv, orders.csv, each csv will be considered as a table
+   - URL: `/chat`
+   - Method: POST
+   - Description: Process a chat message
+   - Request Body:
+     ```json
+     {
+       "messages": [{ "role": "user", "content": "Your message here" }],
+       "context_name": "optional_context_name"
+     }
+     ```
 
-https://github.com/user-attachments/assets/49590442-3942-4d22-ab49-2c847f674f7e
+2. **Generate Report**
 
-### Quick start with SQLITE
+   - URL: `/reports`
+   - Method: POST
+   - Description: Generate an HTML report for a dashboard
+   - Request Body:
+     ```json
+     {
+       "dashboard_name": "your_dashboard_name",
+       "instruction": "Instructions for report generation",
+       "image_path": "optional/path/to/image.jpg"
+     }
+     ```
 
-To start with sqlite you can just do `pip install dataneuron`, you don't need any dependencies.
+3. **List Dashboards**
 
-https://github.com/user-attachments/assets/29199b15-b39c-4917-9f8b-9bb6909ac66a
+   - URL: `/dashboards`
+   - Method: GET
+   - Description: Get a list of all available dashboards
 
-## Roadmap
+4. **Get Dashboard Details**
 
-We have exciting plans for the future of Data Neuron:
+   - URL: `/dashboards/<dashboard_id>`
+   - Method: GET
+   - Description: Get details of a specific dashboard
 
-1. Expanded Database Support:
+5. **Execute Metric**
+   - URL: `/execute-metric`
+   - Method: POST
+   - Description: Execute a specific metric's SQL query
+   - Request Body:
+     ```json
+     {
+       "dashboard_id": "your_dashboard_id",
+       "metric_name": "your_metric_name",
+       "parameters": {
+         "param1": "value1",
+         "param2": "value2"
+       }
+     }
+     ```
 
-   - Add support for additional databases and data warehouses
-   - Integrate with popular cloud data platforms
+## Deployment Instructions
 
-2. API Server Capability:
+### Local Deployment
 
-   - Develop an API server mode to respond to queries based on context
-   - Enable seamless integration with other applications and services
+To run the Data Neuron API locally as a Flask server:
 
-3. Context Marts:
+```bash
+dnn --server [--host HOST] [--port PORT] [--debug]
+```
 
-   - Implement the concept of context marts (e.g., marketing_context_mart, product_context_mart)
-   - Allow for more focused and efficient querying within specific domains
+### AWS Lambda Deployment
 
-4. Synthetic Query Generation:
+To deploy the Data Neuron API to AWS Lambda using Serverless Framework:
 
-   - Create a system for generating synthetic queries
-   - Enhance testing and development processes
+1. Ensure you have the Serverless Framework installed:
 
-5. Deterministic Testing:
+   ```bash
+   npm install -g serverless
+   ```
 
-   - Develop a suite of deterministic tests for query accuracy
-   - Enable easy comparison and evaluation of different LLM models
+2. Install the required Serverless plugin:
 
-6. Continuous Improvement Framework:
+   ```bash
+   npm install --save-dev serverless-python-requirements
+   ```
 
-   - Implement mechanisms for ongoing learning and refinement of the AI model
-   - Incorporate user feedback to enhance query generation accuracy
+3. Create a `serverless.yml` file in your project root with the following content:
 
-7. Scalability Enhancements:
+   ```yaml
+   service: data-neuron-api
 
-   - Optimize performance for larger datasets while maintaining focus on subset efficiency
-   - Explore distributed processing options for more complex queries
+   provider:
+     name: aws
+     runtime: python3.8
+     stage: ${opt:stage, 'dev'}
+     region: ${opt:region, 'us-east-1'}
 
-8. An Agentic Analyst.
+   functions:
+     app:
+       handler: dataneuron.lambda_handler
+       events:
+         - http:
+             path: /{proxy+}
+             method: ANY
+       environment:
+         CLAUDE_API_KEY: ${env:CLAUDE_API_KEY}
+         # Add any other environment variables your app needs
 
-## Contributing
+   plugins:
+     - serverless-python-requirements
+
+   custom:
+     pythonRequirements:
+       dockerizePip: non-linux
+   ```
+
+4. Deploy your application:
+   ```bash
+   serverless deploy
+   ```
+
+After deployment, Serverless will output the API Gateway endpoint URL. You can use this URL to access your API.
+
+Remember to set up any necessary environment variables and ensure your Lambda function has the appropriate permissions to access any required AWS services.
+
+## Notes
+
+- Make sure to handle authentication and authorization for your API endpoints in a production environment.
+- When deploying to AWS Lambda, be aware of cold start times and the 15-minute execution limit for Lambda functions.
+- Ensure your database is accessible from the Lambda function if your API requires database access.
+- For large dependencies or if you exceed the Lambda package size limit, consider using Lambda Layers.
+
+### Deployment to VPS or other
+
+```
+/path/to/your/python/env/bin/dnn --server --prod --host 0.0.0.0 --port 8080
+```
+
+You can mention the `--prod` so the flask server runs in a prod mode, you can mention other options as needed.
+
+
+### Contributing
 
 We welcome contributions to Data Neuron! Please see our [Contributing Guide](CONTRIBUTING.md) for more details on how to get started.
 
