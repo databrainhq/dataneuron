@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dataneuron"
-version = "0.2.0"
+version = "0.2.1"
 description = "An AI Data framework to create AI Data Analyst"
 authors = ["Vysakh Sreenivasan <srvysakh@gmail.com>"]
 license = "MIT"
@@ -21,7 +21,7 @@ sqlparse = "^0.5.1"
 tabulate = "^0.9.0"
 requests = "^2.32.3"
 duckdb = { version = "^0.9.0", optional = true }
-pdfkit = "^1.0.0"
+pdfkit = { version = "^1.0.0" , optional = true }
 clickhouse-connect = { version ="^0.7.17",   optional = true }
 flask = "^3.0.3"
 
@@ -32,7 +32,8 @@ mysql = ["mysql-connector-python"]
 mssql = ["pyodbc"]
 csv = ["duckdb"]
 clickhouse = ["clickhouse-connect"]  
-all = ["psycopg2-binary", "mysql-connector-python", "pyodbc", "duckdb", "clickhouse-connect"]
+pdf = ["pdfkit"]
+all = ["psycopg2-binary", "mysql-connector-python", "pyodbc", "duckdb", "clickhouse-connect", "pdfkit"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.3.1"
