@@ -19,6 +19,14 @@ def list_dashboards():
 
 def load_dashboard(dashboard_name):
     dashboard_file = os.path.join("dashboards", f"{dashboard_name}.yml")
+    if not os.path.exists(dashboard_file):
+        return None
+    with open(dashboard_file, 'r') as f:
+        return yaml.safe_load(f)
+
+
+def load_dashboard(dashboard_name):
+    dashboard_file = os.path.join("dashboards", f"{dashboard_name}.yml")
     with open(dashboard_file, 'r') as f:
         return yaml.safe_load(f)
 

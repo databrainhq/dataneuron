@@ -3,7 +3,7 @@ from .db_init_cmd.main import init_database_config
 from .context_init_cmd.main import init_context
 from .ask_cmd.main import query as ask_query
 from .chat_cmd.main import process_chat_message
-from .report_cmd.main import generate_report_html
+from .report_cmd.main import generate_report_html, list_dashboards, load_dashboard
 import os
 
 app = Flask(__name__)
@@ -48,6 +48,27 @@ def generate_report():
         html_content = generate_report_html(
             dashboard_name, instruction, image_path)
         return Response(html_content, mimetype='text/html')
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/dashboards', methods=['GET'])
+def get_dashboards():
+    try:
+        dashboards = list_dashboards()
+        return jsonify({"dashboards": dashboards})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/dashboards/<dashboard_id>', methods=['GET'])
+def get_dashboard(dashboard_id):
+    try:
+        dashboard = load_dashboard(dashboard_id)
+        if dashboard:
+            return jsonify(dashboard)
+        else:
+            return jsonify({"error": "Dashboard not found"}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
