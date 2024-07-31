@@ -1,5 +1,5 @@
 import click
-from ..db_operations.factory import DatabaseFactory
+from ...db_operations.factory import DatabaseFactory
 
 
 def get_table_list():

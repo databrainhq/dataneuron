@@ -3,9 +3,9 @@ from ..core import DataNeuron
 from ..utils.print import print_info, print_success
 
 
-def query(question):
+def query(question, context):
     """Ask a question about the database."""
-    dn = DataNeuron(db_config='database.yaml', context='customer_success')
+    dn = DataNeuron(db_config='database.yaml', context=context)
     dn.initialize()
 
     result = dn.query(question)

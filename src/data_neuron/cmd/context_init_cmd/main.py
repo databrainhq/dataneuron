@@ -2,8 +2,8 @@ import os
 import click
 from .table_operations import get_table_list, choose_tables, generate_yaml_for_table
 from .yaml_generator import generate_definitions_and_relationships
-from ..utils.print import print_header, print_info, print_success, print_warning, print_prompt
-from ..db_operations.error_handler import handle_database_errors
+from ...utils.print import print_header, print_info, print_success, print_warning, print_prompt
+from ...db_operations.error_handler import handle_database_errors
 
 
 @handle_database_errors

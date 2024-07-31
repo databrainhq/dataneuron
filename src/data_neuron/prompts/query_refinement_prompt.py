@@ -1,4 +1,4 @@
-def query_refinement_prompt(formatted_context: str, sample_data: str, user_query: str) -> str:
+def query_refinement_prompt(formatted_context: str, sample_data: str, user_query: str, chat_history: str) -> str:
     return f"""
     Given the following database context and sample data:
 
@@ -9,12 +9,13 @@ def query_refinement_prompt(formatted_context: str, sample_data: str, user_query
     The user has asked the following question:
     "{user_query}"
 
-    Please analyze if this query can be answered using the given database structure.
-    If it can be answered, refine the query to align it with the database structure. 
-    If it cannot be answered, explain why.
+    Chat History:
+    {chat_history}
+
 
         Your task is to:
-        1. Determine if the query can be answered using the given schema.
+        1. Determine if the question can be answered using the given structure and also based on chat history if it exists.
+        1a. If it cannot be answered, explain why.
         2. If it can be answered:
            a. Identify any terms that might correspond to schema names, table names, column names, or data values.
            b. Replace any ambiguous or colloquial terms with their corresponding database terms.

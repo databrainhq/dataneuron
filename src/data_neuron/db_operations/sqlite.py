@@ -62,7 +62,6 @@ class SQLiteOperations(DatabaseOperations):
             raise OperationError(f"Failed to execute query: {str(e)}")
 
     def execute_query(self, query: str) -> List[Tuple]:
-        print("query", query)
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()

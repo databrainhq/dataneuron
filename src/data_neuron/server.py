@@ -1,10 +1,6 @@
 from flask import Flask, request, jsonify, Response
-from .db_init_cmd.main import init_database_config
-from .context_init_cmd.main import init_context
-from .ask_cmd.main import query as ask_query
-from .chat_cmd.main import process_chat_message
 from .db_operations.factory import DatabaseFactory
-from .report_cmd.main import generate_report_html, list_dashboards, load_dashboard
+from .cmd.report_cmd import generate_report_html, list_dashboards, load_dashboard
 import json
 import traceback
 import os
@@ -31,10 +27,10 @@ def chat():
     # Extract the last user message and remove it from the list
     user_message = messages.pop(last_user_index)['content']
 
-    response = process_chat_message(user_message, context_name, messages)
-    serializable_response = ensure_serializable(response)
+    # response = process_chat_message(user_message, context_name, messages)
+    # serializable_response = ensure_serializable(response)
 
-    return jsonify({"response": serializable_response})
+    return jsonify({"response": ""})
 
 
 @app.route('/reports', methods=['POST'])

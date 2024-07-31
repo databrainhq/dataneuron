@@ -1,5 +1,5 @@
-from ..prompts.yaml_generation_prompt import definitions_relationships_prompt
-from ..api.main import stream_neuron_api
+from ...prompts.yaml_generation_prompt import definitions_relationships_prompt
+from ...api.main import stream_neuron_api
 
 
 def generate_definitions_and_relationships(tables, db_type):
