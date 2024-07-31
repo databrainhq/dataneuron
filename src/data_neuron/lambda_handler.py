@@ -1,8 +1,9 @@
 import json
-from .server import app as application
+from .server import create_app
 
 
 def lambda_handler(event, context):
+    application = create_app()
     with application.test_client() as client:
         http_method = event['httpMethod']
         path = event['path']

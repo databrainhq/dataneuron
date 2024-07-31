@@ -43,10 +43,11 @@ class ContextInitializer:
         os.makedirs(os.path.join(context_dir, 'tables'), exist_ok=True)
 
         for table in chosen_tables:
-            yaml_content = self._generate_yaml_for_table(table)
-            with open(os.path.join(context_dir, 'tables', f'{table}.yaml'), 'w') as f:
+            yaml_content = self._generate_yaml_for_table(
+                table['schema'], table['table'])
+            with open(os.path.join(context_dir, 'tables', f'{table["table"]}.yaml'), 'w') as f:
                 f.write(yaml_content)
-            print_success(f"Generated YAML for table: {table}")
+            print_success(f"Generated YAML for table: {table['table']}")
 
         print_info("Generating definitions and relationships...")
         try:
@@ -81,7 +82,8 @@ class ContextInitializer:
             click.echo(
                 "Choose tables (enter numbers separated by commas, or 'all' for all, 'skip' for next batch, 'done' to finish):")
             for idx, table in enumerate(batch, start=1):
-                click.echo(f"{idx}. {table}")
+                table_name = f"{table['schema']}.{table['table']}"
+                click.echo(f"{idx}. {table_name}")
             choice = click.prompt("Your choice").lower()
             if choice == 'all':
                 chosen_tables.extend(batch)
@@ -92,11 +94,11 @@ class ContextInitializer:
                 break
             else:
                 chosen_tables.extend([batch[int(i)-1] for i in choice.split(',')
-                                     if i.strip().isdigit() and 0 < int(i) <= len(batch)])
+                                      if i.strip().isdigit() and 0 < int(i) <= len(batch)])
         return chosen_tables
 
-    def _generate_yaml_for_table(self, table):
-        table_info = self.db.get_table_info(table)
+    def _generate_yaml_for_table(self, schema, table):
+        table_info = self.db.get_table_info(schema, table)
         from ..prompts.yaml_generation_prompt import table_yaml_prompt
         from ..api.main import stream_neuron_api
 
@@ -113,7 +115,8 @@ class ContextInitializer:
         from ..prompts.yaml_generation_prompt import definitions_relationships_prompt
         from ..api.main import stream_neuron_api
 
-        prompt = definitions_relationships_prompt(tables, self.db.db_type)
+        table_names = [table['table'] for table in tables]
+        prompt = definitions_relationships_prompt(table_names, self.db.db_type)
         system_prompt = "You are a helpful assistant that generates YAML content for database definitions and relationships."
 
         yaml_content = ""
