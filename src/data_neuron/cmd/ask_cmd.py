@@ -25,7 +25,3 @@ def query(question):
 
     print_info("\nExplanation:")
     print_info(result['explanation'])
-
-
-if __name__ == '__main__':
-    ask()

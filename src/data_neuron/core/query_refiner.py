@@ -15,10 +15,13 @@ class QueryRefiner:
     def get_sample_data(self) -> str:
         sample_data = "Sample Data:\n"
         for table_name in self.context['tables']:
-            result = self.db_helper.get_sample_data(table_name)
-            sample_data += f"Table: {table_name}\n"
-            for row in result:
-                sample_data += f"  {row}\n"
+            try:
+                result = self.db_helper.get_sample_data(table_name)
+                sample_data += f"Table: {table_name}\n"
+                for row in result:
+                    sample_data += f"  {row}\n"
+            except Exception as e:
+                sample_data += f"Table: {table_name} (Error: Unable to retrieve data)\n"
         return sample_data
 
     def refine_query(self, user_query: str) -> Tuple[str, List[str], List[Dict], List[Dict]]:

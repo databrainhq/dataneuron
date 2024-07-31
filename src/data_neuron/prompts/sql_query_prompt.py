@@ -169,8 +169,7 @@ def get_sql_rules(db):
         return "Database type not recognized. Please specify 'postgres', 'mysql', 'mssql', or 'sqlite' or 'csv'"
 
 
-def sql_query_prompt(query, context):
-    db = context["database"]
+def sql_query_prompt(query, context, db):
     context_prompt = "Database Context:\n\n"
 
     given_db = 'duckdb' if db == 'csv' else db

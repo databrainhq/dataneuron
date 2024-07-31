@@ -24,7 +24,7 @@ class DatabaseHelper:
         return self.db.execute_query(query)
 
     def top_few_records(self, column_name: str, table_name: str, potential_value: Optional[str] = None, limit: int = 10) -> str:
-        quoted_table = self.quote_identifier(table_name)
+        quoted_table = table_name
 
         if column_name == '*':
             select_clause = '*'

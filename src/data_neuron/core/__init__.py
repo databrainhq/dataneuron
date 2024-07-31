@@ -69,7 +69,7 @@ class DataNeuron:
                 'explanation': "Unable to generate a valid SQL query for the given question."
             }
 
-        prompt = sql_query_prompt(refined_query, self.context)
+        prompt = sql_query_prompt(refined_query, self.context, self.db.db_type)
         llm_response = call_neuron_api(prompt)
 
         # Extract SQL from LLM response (assuming it's wrapped in <sql> tags)
