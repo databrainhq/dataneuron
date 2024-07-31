@@ -1,53 +1,72 @@
+# src/data_neuron/cmd/report_cmd.py
+
 import click
 import os
 import yaml
 import re
 from datetime import datetime
+from ..core.dashboard_manager import DashboardManager
 from ..db_operations.factory import DatabaseFactory
 from ..api.main import call_neuron_vision_api, call_neuron_api
 from ..utils.print import print_header, print_info, print_success, print_warning, styled_prompt
 import pdfkit
 
 
-def list_dashboards():
-    dashboards_dir = "dashboards"
-    if not os.path.exists(dashboards_dir):
-        return []
-    return [f.split('.')[0] for f in os.listdir(dashboards_dir) if f.endswith('.yml')]
+def generate_report():
+    print_header("Generating Dashboard Report")
 
+    dashboard_manager = DashboardManager()
+    dashboards = dashboard_manager.list_dashboards()
+    if not dashboards:
+        print_warning("No dashboards found. Please create a dashboard first.")
+        return
 
-def load_dashboard(dashboard_name):
-    dashboard_file = os.path.join("dashboards", f"{dashboard_name}.yml")
-    if not os.path.exists(dashboard_file):
-        return None
-    with open(dashboard_file, 'r') as f:
-        return yaml.safe_load(f)
+    print_info("Available dashboards:")
+    for idx, dashboard in enumerate(dashboards, 1):
+        click.echo(f"{idx}. {dashboard}")
 
-
-def load_dashboard(dashboard_name):
-    dashboard_file = os.path.join("dashboards", f"{dashboard_name}.yml")
-    with open(dashboard_file, 'r') as f:
-        return yaml.safe_load(f)
-
-
-def execute_dashboard_queries(dashboard):
-    db = DatabaseFactory.get_database()
-    results = {}
-    for metric in dashboard['metrics']:
-        sql_query = metric['sql_query']
+    while True:
+        choice = styled_prompt("Select a dashboard (number)")
         try:
-            result = db.execute_query(sql_query)
-            results[metric['name']] = result
-        except Exception as e:
-            print_warning(
-                f"Error executing query for metric '{metric['name']}': {str(e)}")
-            results[metric['name']] = f"Error: {str(e)}"
-    return results
+            index = int(choice) - 1
+            if 0 <= index < len(dashboards):
+                dashboard_name = dashboards[index]
+                break
+        except ValueError:
+            pass
+        print_warning("Invalid selection. Please try again.")
+
+    instruction = styled_prompt("Enter instructions for the report generation")
+    image_path = styled_prompt(
+        "Enter path to reference image (optional, press Enter to skip)")
+
+    html_content = generate_report_html(
+        dashboard_name, instruction, image_path.strip() or None, dashboard_manager)
+
+    # Save HTML content to a file
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_dir = "reports"
+    os.makedirs(report_dir, exist_ok=True)
+    html_file = os.path.join(report_dir, f"report_{timestamp}.html")
+    with open(html_file, 'w') as f:
+        f.write(html_content)
+
+    # Convert HTML to PDF
+    pdf_file = os.path.join(report_dir, f"report_{timestamp}.pdf")
+    pdfkit.from_file(html_file, pdf_file)
+
+    print_success(f"Report generated successfully: {pdf_file}")
 
 
-def generate_report_html(dashboard_name, instruction, image_path=None):
-    dashboard = load_dashboard(dashboard_name)
-    results = execute_dashboard_queries(dashboard)
+def generate_report_html(dashboard_name, instruction, image_path=None, dashboard_manager=None):
+    if dashboard_manager is None:
+        dashboard_manager = DashboardManager()
+
+    dashboard = dashboard_manager.load_dashboard(dashboard_name)
+    if not dashboard:
+        return f"<html><body><h1>Error: Dashboard '{dashboard_name}' not found.</h1></body></html>"
+
+    results = dashboard_manager.execute_dashboard_queries(dashboard_name)
 
     prompt = f"""
     Generate a complete, self-contained HTML report for the dashboard '{dashboard_name}' based on the following instructions:
@@ -89,51 +108,6 @@ def extract_html_from_response(response):
         html_content = response
 
     return html_content
-
-
-def generate_report():
-    print_header("Generating Dashboard Report")
-
-    dashboards = list_dashboards()
-    if not dashboards:
-        print_warning("No dashboards found. Please create a dashboard first.")
-        return
-
-    print_info("Available dashboards:")
-    for idx, dashboard in enumerate(dashboards, 1):
-        click.echo(f"{idx}. {dashboard}")
-
-    while True:
-        choice = styled_prompt("Select a dashboard (number)")
-        try:
-            index = int(choice) - 1
-            if 0 <= index < len(dashboards):
-                dashboard_name = dashboards[index]
-                break
-        except ValueError:
-            pass
-        print_warning("Invalid selection. Please try again.")
-
-    instruction = styled_prompt("Enter instructions for the report generation")
-    image_path = styled_prompt(
-        "Enter path to reference image (optional, press Enter to skip)")
-
-    html_content = generate_report_html(
-        dashboard_name, instruction, image_path.strip() or None)
-
-    # Save HTML content to a file
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    report_dir = "reports"
-    os.makedirs(report_dir, exist_ok=True)
-    html_file = os.path.join(report_dir, f"report_{timestamp}.html")
-    with open(html_file, 'w') as f:
-        f.write(html_content)
-
-    # Convert HTML to PDF
-    pdf_file = os.path.join(report_dir, f"report_{timestamp}.pdf")
-    pdfkit.from_file(html_file, pdf_file)
-
-    print_success(f"Report generated successfully: {pdf_file}")
 
 
 if __name__ == '__main__':
