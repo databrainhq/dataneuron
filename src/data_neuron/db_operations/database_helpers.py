@@ -1,8 +1,8 @@
-from typing import List
+from typing import List, Optional, Any
 
 
 class DatabaseHelper:
-    def __init__(self, database_name: str, db):
+    def __init__(self, database_name: str, db: Any):
         self.database = database_name
         self.db = db
 
@@ -23,37 +23,42 @@ class DatabaseHelper:
     def execute_query(self, query: str) -> List[tuple]:
         return self.db.execute_query(query)
 
+    def top_few_records(self, column_name: str, table_name: str, potential_value: Optional[str] = None, limit: int = 10) -> str:
+        quoted_table = self.quote_identifier(table_name)
 
-def top_few_records(db_helper: DatabaseHelper, column_name: str, table_name: str, potential_value: str = None, limit: int = 10) -> str:
-    # Handle the asterisk separately
-    if column_name == '*':
-        select_clause = '*'
-        distinct_clause = ""
-    else:
-        quoted_column = db_helper.quote_identifier(column_name)
-        select_clause = quoted_column
-        distinct_clause = "DISTINCT" if db_helper.database == 'mssql' else "DISTINCT "
-
-    where_clause = ""
-    if potential_value:
         if column_name == '*':
-            # When column is '*', we can't use it in the WHERE clause
-            # Instead, we'll search across all columns
-            where_clause = f"WHERE EXISTS (SELECT 1 FROM {table_name} FOR JSON PATH) WHERE JSON_VALUE(BulkColumn, '$.*') LIKE '%{potential_value}%'"
+            select_clause = '*'
+            distinct_clause = ""
         else:
-            where_clause = f"WHERE {db_helper.get_pattern_match_clause(quoted_column, potential_value)}"
+            quoted_column = self.quote_identifier(column_name)
+            select_clause = quoted_column
+            distinct_clause = "DISTINCT" if self.database == 'mssql' else "DISTINCT "
 
-    if db_helper.database == 'mssql':
-        query = f"""
-        SELECT {distinct_clause} TOP {limit}  {select_clause}
-        FROM {table_name}
-        {where_clause}
-        """
-    else:  # postgres, mysql, and sqlite
-        query = f"""
-        SELECT {distinct_clause}{select_clause}
-        FROM {table_name}
-        {where_clause}
-        LIMIT {limit}
-        """
-    return query.strip()
+        where_clause = ""
+        if potential_value:
+            if column_name == '*':
+                if self.database == 'mssql':
+                    where_clause = f"WHERE EXISTS (SELECT 1 FROM {quoted_table} FOR JSON PATH) WHERE JSON_VALUE(BulkColumn, '$.*') LIKE '%{potential_value}%'"
+                else:
+                    where_clause = f"WHERE CAST({quoted_table} AS TEXT) LIKE '%{potential_value}%'"
+            else:
+                where_clause = f"WHERE {self.get_pattern_match_clause(quoted_column, potential_value)}"
+
+        if self.database == 'mssql':
+            query = f"""
+            SELECT {distinct_clause} TOP {limit} {select_clause}
+            FROM {quoted_table}
+            {where_clause}
+            """
+        else:  # postgres, mysql, and sqlite
+            query = f"""
+            SELECT {distinct_clause}{select_clause}
+            FROM {quoted_table}
+            {where_clause}
+            LIMIT {limit}
+            """
+        return query.strip()
+
+    def get_sample_data(self, table_name: str, limit: int = 5) -> List[tuple]:
+        query = self.top_few_records('*', table_name, limit=limit)
+        return self.execute_query(query)

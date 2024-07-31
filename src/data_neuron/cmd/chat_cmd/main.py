@@ -6,10 +6,10 @@ from ..prompts.sql_query_prompt import sql_query_prompt
 from ..utils.stream_print import process_simplified_xml
 import threading
 from queue import Queue
-from ..ask_cmd.query_worker import db_query_worker
-from ..query_refiner import process_query
+from ..query_worker import db_query_worker
+from ..core.query_refiner import process_query
 from ..api.main import stream_neuron_api
-from ..context_loader import load_context
+from ..core.context_loader import load_context
 from ..utils.print import print_header, print_prompt, print_info, print_success, print_warning, print_error, create_box
 from tabulate import tabulate
 

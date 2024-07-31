@@ -1,8 +1,8 @@
-from ..query_executor import execute_query
-from ..db_operations.factory import DatabaseFactory
+from .query_executor import execute_query
+from .db_operations.factory import DatabaseFactory
 import click
-from ..utils.print import print_success, print_info, create_box, print_error
-from ..sql_validator import sanitize_sql_query
+from .utils.print import print_success, print_info, create_box, print_error
+from .core.sql_validator import sanitize_sql_query
 from tabulate import tabulate
 from threading import Lock
 import time

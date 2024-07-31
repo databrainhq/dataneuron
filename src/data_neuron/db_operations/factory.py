@@ -9,11 +9,14 @@ CONFIG_PATH = 'database.yaml'
 
 class DatabaseFactory:
     @staticmethod
-    def get_database():
+    def get_database(db_config=None):
         try:
-            db_config = DatabaseFactory.load_config()
+            if db_config is None:
+                db_config = DatabaseFactory.load_config()
+
             db_type = db_config.get('name')
             db = None
+
             if db_type == 'sqlite':
                 db = SQLiteOperations(db_config.get('db_path'))
             elif db_type == 'postgres':
@@ -43,10 +46,10 @@ class DatabaseFactory:
                 )
             elif db_type == 'csv':
                 from .duckdb import DuckDBOperations
-                return DuckDBOperations(db_config.get('data_directory'))
+                db = DuckDBOperations(db_config.get('data_directory'))
             elif db_type == 'clickhouse':
                 from .clickhouse import ClickHouseOperations
-                return ClickHouseOperations(
+                db = ClickHouseOperations(
                     host=db_config.get('host'),
                     port=db_config.get('port'),
                     user=db_config.get('user'),
