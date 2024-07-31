@@ -3,7 +3,7 @@
 import click
 import yaml
 import os
-from ...utils.print import print_success, print_info, confirm_with_user
+from ..utils.print import print_success, print_info, confirm_with_user
 
 
 def get_db_config(db_type):

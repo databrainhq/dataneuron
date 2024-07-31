@@ -28,9 +28,13 @@ class DataNeuron:
             # If db_config is a dictionary, use it directly
             self.db = DatabaseFactory.get_database(self.db_config)
 
+        context_loader = None
         if isinstance(self.context, str):
             context_loader = ContextLoader(self.context)
             self.context = context_loader.load()
+        elif self.context is None:
+            # If context is None, create an empty context
+            self.context = {}
 
         self.query_refiner = QueryRefiner(
             self.context, self.db, context_loader)

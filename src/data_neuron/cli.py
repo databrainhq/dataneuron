@@ -1,10 +1,11 @@
 import click
 from .cmd.ask_cmd import query
-from .cmd.context_init_cmd.main import init_context
-from .cmd.db_init_cmd.main import init_database_config
+from .cmd.db_init_cmd import init_database_config
 from .cmd.chat_cmd import chat_cmd
 from .cmd.report_cmd import generate_report  # New import
 from .server import run_server
+from .cmd.context_init_cmd import ContextInitializer
+
 import os
 
 VERSION = "0.2.2"  # Update this as you release new versions
@@ -26,7 +27,8 @@ VERSION = "0.2.2"  # Update this as you release new versions
 @click.option('--port', type=int, default=8040, help='Port to run the server on')
 def cli(init, db_init, chat, version, report, context, ask, server, prod, host, port):
     if init:
-        init_context()
+        initializer = ContextInitializer()
+        initializer.init_context()
     elif ask:
         query(ask, context)
     elif db_init:
