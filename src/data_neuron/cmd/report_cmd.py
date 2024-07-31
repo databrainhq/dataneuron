@@ -5,8 +5,7 @@ import re
 from datetime import datetime
 from ..db_operations.factory import DatabaseFactory
 from ..api.main import call_neuron_vision_api, call_neuron_api
-from ..utils.print import print_header, print_info, print_success, print_warning, styled_prompt, print_error
-from ..utils.file_utils import convert_to_base64
+from ..utils.print import print_header, print_info, print_success, print_warning, styled_prompt
 import pdfkit
 
 

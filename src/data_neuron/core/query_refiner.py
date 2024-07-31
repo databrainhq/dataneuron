@@ -24,25 +24,27 @@ class QueryRefiner:
                 sample_data += f"Table: {table_name} (Error: Unable to retrieve data)\n"
         return sample_data
 
-    def refine_query(self, user_query: str) -> Tuple[str, List[str], List[Dict], List[Dict]]:
-        formatted_context = self.context_loader.get_formatted_context()
+    def refine_query(self, user_query: str, formatted_history: str = "") -> Tuple[str, List[str], List[Dict], List[Dict]]:
+        formatted_context = self.context.get('formatted_context', '')
         sample_data = self.get_sample_data()
 
         prompt = query_refinement_prompt(
-            formatted_context, sample_data, user_query)
+            formatted_context, sample_data, user_query, formatted_history)
         response = call_neuron_api(prompt)
 
         try:
             parsed_response = json.loads(response)
-            refined_query = parsed_response['refined_query']
-            changes = parsed_response['changes']
+            refined_query = parsed_response.get('refined_query')
+            can_be_answered = parsed_response.get('can_be_answered')
+            changes = parsed_response.get('changes', [])
             entities = parsed_response.get('entities', [])
         except (json.JSONDecodeError, KeyError):
             print("Error: Invalid response from LLM.")
-            return user_query, [], [], []
+            return None, [], [], []
 
-        if not refined_query:
-            return None, changes, [], []
+        if not can_be_answered:
+            exp = parsed_response.get('explanation')
+            return None, exp, [], []
 
         if entities:
             is_valid, refined_entities, invalid_entities = self.validate_and_refine_entities(
@@ -52,7 +54,6 @@ class QueryRefiner:
                     refined_query, refined_entities)
         else:
             is_valid, refined_entities, invalid_entities = True, [], []
-
         return refined_query, changes, refined_entities, invalid_entities
 
     def further_refine_query(self, query: str, refined_entities: List[Dict]) -> str:

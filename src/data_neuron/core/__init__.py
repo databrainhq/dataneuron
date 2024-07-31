@@ -1,5 +1,5 @@
 import yaml
-from typing import Union, Dict, List, Any
+from typing import Union, Dict, List, Any, Tuple, Optional
 from .context_loader import ContextLoader
 from ..db_operations.factory import DatabaseFactory
 from ..api.main import call_neuron_api
@@ -102,7 +102,7 @@ class DataNeuron:
             'explanation': llm_response  # Include full LLM response for explanation
         }
 
-    def chat(self, message: str) -> str:
+    def chat(self, message: str) -> Tuple[Optional[str], Any]:
         """Process a chat message, maintain chat history, and return a response."""
         if not self.context or not self.db:
             raise ValueError(
@@ -115,27 +115,25 @@ class DataNeuron:
         refined_query, changes, refined_entities, invalid_entities = self.query_refiner.refine_query(
             message, formatted_history)
 
+        response = ""
+        result = []
         if not refined_query:
             response = "I'm sorry, but I couldn't understand your query in the context of our conversation and the database structure."
         else:
-            prompt = sql_query_prompt(refined_query, self.context)
+            prompt = sql_query_prompt(
+                refined_query, self.context, self.db.db_type)
             llm_response = call_neuron_api(prompt)
 
-            sql_query, result = self._extract_and_execute_sql(llm_response)
+            sql_start = llm_response.find('<sql>')
+            sql_end = llm_response.find('</sql>')
 
-            # if msg.get('sql'):
-            #     formatted_history += f"SQL: {msg['sql']}\n"
-            # if msg.get('result'):
-            #     # Limit to MAX_RESULT_RECORDS
-            #     result_str = str(msg['result'][:MAX_RESULT_RECORDS])
-            #     formatted_history += f"Result: {result_str}\n"
+            if sql_start == -1 or sql_end == -1:
+                response = "query can't be answered"
 
-            if sql_query and result:
-                response = f"Based on your query, I executed the following SQL:\n{sql_query}\n\nThe result is:\n{result}\n\n{llm_response}"
-            elif llm_response:
-                response = llm_response
-            else:
-                response = "I'm sorry, but I couldn't generate a meaningful response to your query."
+            sql_query = llm_response[sql_start+5:sql_end].strip()
+            result = self.execute_query(sql_query)
+            result_str = str(result[:MAX_RESULT_RECORDS])
+            response += f"SQL query generated: {sql_query}, Result samplet: {result_str}\n"
 
         # Update chat history
         self.chat_history.append({"role": "user", "content": message})
@@ -145,23 +143,7 @@ class DataNeuron:
         if len(self.chat_history) > MAX_CHAT_HISTORY * 2:
             self.chat_history = self.chat_history[-MAX_CHAT_HISTORY * 2:]
 
-        return response
-
-    def _process_llm_response(self, response: str) -> str:
-        # Check if the response contains an SQL query
-        sql_start = response.find('<sql>')
-        if sql_start != -1:
-            sql_end = response.find('</sql>')
-            sql_query = response[sql_start+5:sql_end].strip()
-
-            # Execute the SQL query
-            result = self.execute_query(sql_query)
-
-            # Replace the SQL part in the response with the query result
-            response = response[:sql_start] + \
-                f"Query result: {result}" + response[sql_end+6:]
-
-        return response
+        return sql_query, result
 
     def get_table_list(self) -> List[str]:
         """Return a list of tables in the database."""
