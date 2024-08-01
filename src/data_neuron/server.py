@@ -12,7 +12,7 @@ def create_app(config=None):
     if config:
         app.config.from_object(config)
 
-    def get_data_neuron(context):
+    def get_data_neuron(context=None):
         data_neuron = DataNeuron(db_config='database.yaml', context=context)
         data_neuron.initialize()
         return data_neuron

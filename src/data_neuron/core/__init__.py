@@ -32,12 +32,12 @@ class DataNeuron:
         if isinstance(self.context, str):
             context_loader = ContextLoader(self.context)
             self.context = context_loader.load()
+            self.query_refiner = QueryRefiner(
+                self.context, self.db, context_loader)
+
         elif self.context is None:
             # If context is None, create an empty context
             self.context = {}
-
-        self.query_refiner = QueryRefiner(
-            self.context, self.db, context_loader)
 
     def execute_query(self, sql_query: str) -> Any:
         """Execute a SQL query and return the result."""
