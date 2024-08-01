@@ -2,11 +2,12 @@
 
 import os
 import click
+import yaml
 from ..core import DataNeuron
-from ..core.context_loader import ContextLoader
 from ..core.dashboard_manager import DashboardManager
 from ..utils.print import print_header, print_info, print_success, print_warning, print_prompt
 from ..db_operations.error_handler import handle_database_errors
+from ..db_operations.database_helpers import DatabaseHelper
 
 
 class ContextInitializer:
@@ -15,6 +16,7 @@ class ContextInitializer:
         self.data_neuron.initialize()
         self.db = self.data_neuron.db
         self.dashboard_manager = DashboardManager()
+        self.db_helper = DatabaseHelper(self.db.db_type, self.db)
 
     @handle_database_errors
     def init_context(self):
@@ -42,12 +44,20 @@ class ContextInitializer:
 
         os.makedirs(os.path.join(context_dir, 'tables'), exist_ok=True)
 
+        sample_data = {}
         for table in chosen_tables:
             yaml_content = self._generate_yaml_for_table(
                 table['schema'], table['table'])
             with open(os.path.join(context_dir, 'tables', f'{table["table"]}.yaml'), 'w') as f:
                 f.write(yaml_content)
             print_success(f"Generated YAML for table: {table['table']}")
+            table_name = f"{table['schema']}.{table['table']}"
+            res = self._generate_sample_data(table_name)
+            sample_data[table_name] = res
+
+        with open(os.path.join(context_dir, 'sample_data.yaml'), 'w') as f:
+            yaml.dump(sample_data, f)
+        print_success("Generated sample_data.yaml")
 
         print_info("Generating definitions and relationships...")
         try:
@@ -66,11 +76,7 @@ class ContextInitializer:
                 f"Initialization complete for context: {context_name}")
 
             # Initialize ContextLoader with the new context
-            context_loader = ContextLoader(context_name)
-            context = context_loader.load()
-
-            # Update DataNeuron with the new context
-            self.data_neuron.context = context
+            self.data_neuron.set_context(context_name)
 
         except Exception as e:
             print_warning(f"An error occurred: {str(e)}")
@@ -126,3 +132,18 @@ class ContextInitializer:
         # Split the YAML content into definitions and relationships
         definitions_yaml, relationships_yaml = yaml_content.split('---')
         return definitions_yaml.strip(), relationships_yaml.strip()
+
+    def _generate_sample_data(self, table):
+        # Assuming schema is not needed here
+        query = self.db_helper.top_few_records(
+            column_name="*", table_name=table, limit=5)
+
+        result = self.db.execute_query_with_column_names(query)
+        if isinstance(result, tuple) and len(result) == 2:
+            data, columns = result
+            return [dict(zip(columns, row)) for row in data]
+        else:
+            print_warning(
+                f"Unexpected result format when generating sample data for table {table}")
+            print(f"Result: {result}")
+            return {'columns': [], 'data': []}
