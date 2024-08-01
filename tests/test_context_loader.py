@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, mock_open
-from data_neuron.context_loader import load_context
+from data_neuron.core.context_loader import load_context
 
 
 class TestContextLoader(unittest.TestCase):

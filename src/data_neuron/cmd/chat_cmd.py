@@ -1,14 +1,14 @@
 # src/data_neuron/cmd/chat_cmd.py
 
 import click
-from ..core import DataNeuron
+from ..core.data_neuron import DataNeuron
 from ..core.dashboard_manager import DashboardManager
 from ..utils.print import print_info, print_success, print_prompt, print_warning
 
 
 def chat_cmd(context):
     """Start an interactive chat session with the database."""
-    dn = DataNeuron(db_config='database.yaml', context=context)
+    dn = DataNeuron(db_config='database.yaml', context=context, log=True)
     dn.initialize()
     dashboard_manager = DashboardManager()
 
@@ -34,8 +34,6 @@ def chat_cmd(context):
             continue
 
         sql, response = dn.chat(user_input)
-        print_success("\nAssistant:")
-        print_info(response)
         print()  # Add a blank line for better readability
 
         # Extract the SQL query from the response

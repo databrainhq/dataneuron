@@ -3,7 +3,7 @@
 import os
 import click
 import yaml
-from ..core import DataNeuron
+from ..core.data_neuron import DataNeuron
 from ..core.dashboard_manager import DashboardManager
 from ..utils.print import print_header, print_info, print_success, print_warning, print_prompt
 from ..db_operations.error_handler import handle_database_errors
