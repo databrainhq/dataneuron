@@ -11,47 +11,17 @@ class SQLQueryFilter:
         self.case_sensitive = case_sensitive
 
     def apply_client_filter(self, sql_query: str, client_id: int) -> str:
-        # Split the query at the WHERE keyword
-        parts = sql_query.split(' WHERE ', 1)
+        # Parse the entire SQL query
+        parsed = sqlparse.parse(sql_query)[0]
 
-        parsed = sqlparse.parse(parts[0])[0]
-        tables_info = self._extract_tables_info(parsed)
-
-        filters = []
-        for table_info in tables_info:
-            table_name = table_info['name']
-            table_alias = table_info['alias']
-            schema = table_info['schema']
-
-            matching_table = self._find_matching_table(table_name, schema)
-
-            if matching_table:
-                client_id_column = self.client_tables[matching_table]
-                table_reference = table_alias or table_name
-                filters.append(
-                    f'{self._quote_identifier(table_reference)}.{self._quote_identifier(client_id_column)} = {client_id}')
-
-        if filters:
-            new_condition = " AND ".join(filters)
-            if len(parts) > 1:
-                # There was an existing WHERE clause
-                where_parts = parts[1].split(' GROUP BY ', 1)
-                existing_where = where_parts[0].strip()
-                group_by = f" GROUP BY {where_parts[1]}" if len(
-                    where_parts) > 1 else ""
-
-                # Check if the existing WHERE clause contains OR conditions
-                if ' OR ' in existing_where.upper():
-                    # If it contains OR, wrap it in parentheses if not already
-                    if not (existing_where.startswith('(') and existing_where.endswith(')')):
-                        existing_where = f"({existing_where})"
-
-                return f"{parts[0]} WHERE {existing_where} AND {new_condition}{group_by}"
-            else:
-                # There was no existing WHERE clause
-                return f"{sql_query} WHERE {new_condition}"
+        # Check if the query contains UNION, INTERSECT, or EXCEPT
+        if self._contains_set_operation(parsed):
+            return self._handle_set_operation(parsed, client_id)
         else:
-            return sql_query
+            return self._apply_filter_to_single_query(sql_query, client_id)
+
+    def _contains_set_operation(self, parsed):
+        return any(token.ttype is Keyword and token.value.upper() in ('UNION', 'INTERSECT', 'EXCEPT') for token in parsed.tokens)
 
     def _extract_tables_info(self, parsed):
         tables_info = []
@@ -150,3 +120,67 @@ class SQLQueryFilter:
         print(
             f"Final parsed tokens: {[str(token) for token in parsed.tokens]}")
         return str(parsed)
+
+    def _handle_set_operation(self, parsed, client_id):
+        # Split the query into individual SELECT statements
+        statements = []
+        current_statement = []
+        for token in parsed.tokens:
+            if token.ttype is Keyword and token.value.upper() in ('UNION', 'INTERSECT', 'EXCEPT'):
+                statements.append(''.join(str(t)
+                                  for t in current_statement).strip())
+                statements.append(str(token))
+                current_statement = []
+            else:
+                current_statement.append(token)
+        statements.append(''.join(str(t) for t in current_statement).strip())
+
+        # Apply the filter to each SELECT statement
+        filtered_statements = [self._apply_filter_to_single_query(stmt, client_id) if not stmt.upper(
+        ) in ('UNION', 'INTERSECT', 'EXCEPT') else stmt for stmt in statements]
+
+        # Reconstruct the query
+        return ' '.join(filtered_statements)
+
+    def _apply_filter_to_single_query(self, sql_query: str, client_id: int) -> str:
+        # This is the original apply_client_filter logic, now applied to a single SELECT statement
+        parts = sql_query.split(' WHERE ', 1)
+
+        parsed = sqlparse.parse(parts[0])[0]
+        tables_info = self._extract_tables_info(parsed)
+
+        filters = []
+        for table_info in tables_info:
+            table_name = table_info['name']
+            table_alias = table_info['alias']
+            schema = table_info['schema']
+
+            matching_table = self._find_matching_table(table_name, schema)
+
+            if matching_table:
+                client_id_column = self.client_tables[matching_table]
+                table_reference = table_alias or table_name
+                filters.append(
+                    f'{self._quote_identifier(table_reference)}.{self._quote_identifier(client_id_column)} = {client_id}')
+
+        if filters:
+            new_condition = " AND ".join(filters)
+            if len(parts) > 1:
+                # There was an existing WHERE clause
+                where_parts = parts[1].split(' GROUP BY ', 1)
+                existing_where = where_parts[0].strip()
+                group_by = f" GROUP BY {where_parts[1]}" if len(
+                    where_parts) > 1 else ""
+
+                # Check if the existing WHERE clause contains OR conditions
+                if ' OR ' in existing_where.upper():
+                    # If it contains OR, wrap it in parentheses if not already
+                    if not (existing_where.startswith('(') and existing_where.endswith(')')):
+                        existing_where = f"({existing_where})"
+
+                return f"{parts[0]} WHERE {existing_where} AND {new_condition}{group_by}"
+            else:
+                # There was no existing WHERE clause
+                return f"{sql_query} WHERE {new_condition}"
+        else:
+            return sql_query

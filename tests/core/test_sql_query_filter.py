@@ -62,6 +62,36 @@ class TestSQLQueryFilter(unittest.TestCase):
         expected = 'SELECT product_id, COUNT(*) FROM orders WHERE order_date > "2023-01-01" AND "orders"."user_id" = 1 GROUP BY product_id'
         self.assertEqual(self.filter.apply_client_filter(query, 1), expected)
 
+    def test_simple_union(self):
+        query = 'SELECT * FROM orders UNION SELECT * FROM products'
+        expected = 'SELECT * FROM orders WHERE "orders"."user_id" = 1 UNION SELECT * FROM products WHERE "products"."company_id" = 1'
+        self.assertEqual(self.filter.apply_client_filter(query, 1), expected)
+
+    def test_union_with_existing_where(self):
+        query = 'SELECT * FROM orders WHERE order_date > "2023-01-01" UNION SELECT * FROM products WHERE price > 100'
+        expected = 'SELECT * FROM orders WHERE order_date > "2023-01-01" AND "orders"."user_id" = 1 UNION SELECT * FROM products WHERE price > 100 AND "products"."company_id" = 1'
+        self.assertEqual(self.filter.apply_client_filter(query, 1), expected)
+
+    def test_multiple_unions(self):
+        query = 'SELECT * FROM orders UNION SELECT * FROM products UNION SELECT * FROM items'
+        expected = 'SELECT * FROM orders WHERE "orders"."user_id" = 1 UNION SELECT * FROM products WHERE "products"."company_id" = 1 UNION SELECT * FROM items WHERE "items"."organization_id" = 1'
+        self.assertEqual(self.filter.apply_client_filter(query, 1), expected)
+
+    def test_union_all(self):
+        query = 'SELECT * FROM orders UNION ALL SELECT * FROM products'
+        expected = 'SELECT * FROM orders WHERE "orders"."user_id" = 1 UNION ALL SELECT * FROM products WHERE "products"."company_id" = 1'
+        self.assertEqual(self.filter.apply_client_filter(query, 1), expected)
+
+    def test_intersect(self):
+        query = 'SELECT product_id FROM orders INTERSECT SELECT id FROM products'
+        expected = 'SELECT product_id FROM orders WHERE "orders"."user_id" = 1 INTERSECT SELECT id FROM products WHERE "products"."company_id" = 1'
+        self.assertEqual(self.filter.apply_client_filter(query, 1), expected)
+
+    def test_except(self):
+        query = 'SELECT product_id FROM orders EXCEPT SELECT id FROM products'
+        expected = 'SELECT product_id FROM orders WHERE "orders"."user_id" = 1 EXCEPT SELECT id FROM products WHERE "products"."company_id" = 1'
+        self.assertEqual(self.filter.apply_client_filter(query, 1), expected)
+
 
 if __name__ == '__main__':
     unittest.main()
