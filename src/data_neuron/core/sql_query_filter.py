@@ -10,8 +10,10 @@ class SQLQueryFilter:
         self.client_tables = client_tables
         self.schemas = schemas
         self.case_sensitive = case_sensitive
+        self.filtered_tables = set()
 
     def apply_client_filter(self, sql_query: str, client_id: int) -> str:
+        self.filtered_tables = set()
         parsed = sqlparse.parse(sql_query)[0]
         print(f"Initial parsed query: {parsed}")
         result = self._apply_filter_recursive(parsed, client_id)
@@ -20,13 +22,13 @@ class SQLQueryFilter:
     def _apply_filter_recursive(self, parsed, client_id):
         print(f"Applying filter to: {parsed}")
         if isinstance(parsed, Token) and parsed.ttype is DML:
-            # This is a SELECT token, we need to process the whole statement
             return self._apply_filter_to_single_query(str(parsed), client_id)
         elif self._contains_set_operation(parsed):
             return self._handle_set_operation(parsed, client_id)
         elif self._contains_subquery(parsed):
             print("Subquery detected")
-            return self._handle_subquery(parsed, client_id)
+            subquery_result = self._handle_subquery(parsed, client_id)
+            return self._apply_filter_to_single_query(subquery_result, client_id)
         else:
             return self._apply_filter_to_single_query(str(parsed), client_id)
 
@@ -193,10 +195,16 @@ class SQLQueryFilter:
         return result
 
     def _apply_filter_to_single_query(self, sql_query: str, client_id: int) -> str:
-        parts = sql_query.split(' WHERE ', 1)
+        print(f"Applying filter to single query: {sql_query}")
 
-        parsed = sqlparse.parse(parts[0])[0]
+        # Split the query into parts before and after GROUP BY
+        parts = sql_query.split(' GROUP BY ')
+        main_query = parts[0]
+        group_by = f" GROUP BY {parts[1]}" if len(parts) > 1 else ""
+
+        parsed = sqlparse.parse(main_query)[0]
         tables_info = self._extract_tables_info(parsed)
+        print(f"Extracted tables info: {tables_info}")
 
         filters = []
         for table_info in tables_info:
@@ -205,34 +213,29 @@ class SQLQueryFilter:
             schema = table_info['schema']
 
             matching_table = self._find_matching_table(table_name, schema)
+            print(f"Matching table for {table_name}: {matching_table}")
 
-            if matching_table:
+            if matching_table and matching_table not in self.filtered_tables:
                 client_id_column = self.client_tables[matching_table]
                 table_reference = table_alias or table_name
                 filters.append(
                     f'{self._quote_identifier(table_reference)}.{self._quote_identifier(client_id_column)} = {client_id}')
+                self.filtered_tables.add(matching_table)
+
+        print(f"Generated filters: {filters}")
 
         if filters:
-            new_condition = " AND ".join(filters)
-            if len(parts) > 1:
-                # There was an existing WHERE clause
-                where_parts = parts[1].split(' GROUP BY ', 1)
-                existing_where = where_parts[0].strip()
-                group_by = f" GROUP BY {where_parts[1]}" if len(
-                    where_parts) > 1 else ""
-
-                # Check if the existing WHERE clause contains OR conditions
-                if ' OR ' in existing_where.upper():
-                    # If it contains OR, wrap it in parentheses if not already
-                    if not (existing_where.startswith('(') and existing_where.endswith(')')):
-                        existing_where = f"({existing_where})"
-
-                return f"{parts[0]} WHERE {existing_where} AND {new_condition}{group_by}"
+            where_clause = " AND ".join(filters)
+            if 'WHERE' in main_query.upper():
+                where_parts = main_query.split('WHERE', 1)
+                result = f"{where_parts[0]} WHERE {where_parts[1].strip()} AND {where_clause}"
             else:
-                # There was no existing WHERE clause
-                return f"{sql_query} WHERE {new_condition}"
+                # If there's no WHERE, add it (even if there's a JOIN)
+                result = f"{main_query} WHERE {where_clause}"
         else:
-            return sql_query
+            result = main_query
+
+        return result + group_by
 
     def _contains_subquery(self, parsed):
         tokens = parsed.tokens if hasattr(parsed, 'tokens') else [parsed]
@@ -265,25 +268,25 @@ class SQLQueryFilter:
             if isinstance(token, Identifier) and token.has_alias():
                 if isinstance(token.tokens[0], Parenthesis):
                     print("Found subquery in parenthesis")
-                    # Exclude parentheses
                     subquery = token.tokens[0].tokens[1:-1]
                     subquery_str = ' '.join(str(t) for t in subquery)
-                    filtered_subquery = self._apply_filter_to_single_query(
-                        subquery_str, client_id)
-                    result.append(
-                        f"({filtered_subquery}) AS {token.get_alias()}")
+                    filtered_subquery = self._apply_filter_recursive(
+                        sqlparse.parse(subquery_str)[0], client_id)
+                    alias = f"AS {token.get_alias()}" if 'AS' in str(
+                        token) else token.get_alias()
+                    result.append(f"({filtered_subquery}) {alias}")
                 else:
                     result.append(str(token))
             elif isinstance(token, Parenthesis):
                 print("Found non-aliased subquery in parenthesis")
-                subquery = token.tokens[1:-1]  # Exclude parentheses
+                subquery = token.tokens[1:-1]
                 subquery_str = ' '.join(str(t) for t in subquery)
-                filtered_subquery = self._apply_filter_to_single_query(
-                    subquery_str, client_id)
+                filtered_subquery = self._apply_filter_recursive(
+                    sqlparse.parse(subquery_str)[0], client_id)
                 result.append(f"({filtered_subquery})")
             else:
                 result.append(str(token))
 
         final_result = ' '.join(result)
-        print(f"Final subquery result: {final_result}")
+        print(f"Subquery result: {final_result}")
         return final_result
