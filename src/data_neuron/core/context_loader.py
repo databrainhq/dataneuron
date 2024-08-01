@@ -20,6 +20,7 @@ class ContextLoader:
         self._load_tables()
         self._load_relationships()
         self._load_global_definitions()
+        self._load_sample_data()
         return self.context
 
     def get_formatted_context(self) -> str:
@@ -82,3 +83,10 @@ class ContextLoader:
         if os.path.exists(definitions_path):
             with open(definitions_path, 'r') as f:
                 self.context['global_definitions'] = yaml.safe_load(f)
+
+    def _load_sample_data(self):
+        """Load sample data from YAML file."""
+        sample_data_path = os.path.join(self.context_dir, 'sample_data.yaml')
+        if os.path.exists(sample_data_path):
+            with open(sample_data_path, 'r') as f:
+                self.context['sample_data'] = yaml.safe_load(f)

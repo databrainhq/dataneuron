@@ -174,9 +174,13 @@ class DataNeuron:
             formatted_history += "\n"
         return formatted_history
 
-    def set_context(self, context_name: str):
-        context_loader = ContextLoader(context_name)
-        self.context = context_loader.load()
+    def set_context(self, context):
+        if isinstance(context, str):
+            context_loader = ContextLoader(context)
+            self.context = context_loader.load()
+        else:
+            self.context = context
+
         if self.query_refiner:
             self.query_refiner.update_context(self.context)
         else:

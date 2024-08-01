@@ -1,7 +1,6 @@
 from typing import Dict, Tuple, List
 import json
 from ..api.main import call_neuron_api
-from ..db_operations.database_helpers import DatabaseHelper
 from ..prompts.query_refinement_prompt import query_refinement_prompt
 
 
@@ -9,23 +8,19 @@ class QueryRefiner:
     def __init__(self, context: Dict, db, context_loader):
         self.context = context
         self.db = db
-        self.db_helper = DatabaseHelper(self.db.db_type, self.db)
         self.context_loader = context_loader
 
     def update_context(self, new_context: Dict):
         self.context = new_context
 
     def get_sample_data(self) -> str:
-        sample_data = "Sample Data:\n"
-        for table_name in self.context['tables']:
-            try:
-                result = self.db_helper.get_sample_data(table_name)
-                sample_data += f"Table: {table_name}\n"
-                for row in result:
-                    sample_data += f"  {row}\n"
-            except Exception as e:
-                sample_data += f"Table: {table_name} (Error: Unable to retrieve data)\n"
-        return sample_data
+        sample_data = self.context.get('sample_data', {})
+        sample_data_str = "Sample Data:\n"
+        for table_name, data in sample_data.items():
+            sample_data_str += f"Table: {table_name}\n"
+            for row in data[:3]:  # Limit to 3 rows per table
+                sample_data_str += f"  {row}\n"
+        return sample_data_str
 
     def refine_query(self, user_query: str, formatted_history: str = "") -> Tuple[str, List[str], List[Dict], List[Dict]]:
         formatted_context = self.context.get('formatted_context', '')
