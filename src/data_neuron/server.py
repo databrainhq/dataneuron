@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, Response
-from .core import DataNeuron
+from .core.data_neuron import DataNeuron
 from .core.dashboard_manager import DashboardManager
 from .core.context_loader import ContextLoader
 from .utils.serialization import ensure_serializable, convert_to_serializable

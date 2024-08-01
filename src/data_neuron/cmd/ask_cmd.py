@@ -1,11 +1,11 @@
 import click
-from ..core import DataNeuron
+from ..core.data_neuron import DataNeuron
 from ..utils.print import print_info, print_success
 
 
 def query(question, context):
     """Ask a question about the database."""
-    dn = DataNeuron(db_config='database.yaml', context=context)
+    dn = DataNeuron(db_config='database.yaml', context=context, log=True)
     dn.initialize()
 
     result = dn.query(question)
