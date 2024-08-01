@@ -54,17 +54,9 @@ class SQLQueryFilter:
                     break
             elif token.ttype is Keyword and token.value.upper() == 'FROM':
                 from_seen = True
-
-    def _find_matching_table(self, table_name: str, schema: Optional[str] = None) -> Optional[str]:
-        possible_names = [
-            f"{schema}.{table_name}" if schema else table_name,
-            table_name,
-        ] + [f"{s}.{table_name}" for s in self.schemas]
-
-        for name in possible_names:
-            if self._case_insensitive_get(self.client_tables, name) is not None:
-                return name
-        return None
+            elif token.ttype is Keyword and token.value.upper() == 'JOIN':
+                tables_info.append(self._parse_table_identifier(
+                    parsed.token_next(token)[1]))
 
     def _parse_table_identifier(self, identifier):
         schema = None
@@ -79,10 +71,20 @@ class SQLQueryFilter:
             parts = name.split('.')
             if len(parts) == 2:
                 schema, name = parts
-            # Keep the full name for schema-qualified tables
-            name = f"{schema}.{name}"
+            name = f"{schema}.{name}" if schema else name
 
         return {'name': name, 'schema': schema, 'alias': alias}
+
+    def _find_matching_table(self, table_name: str, schema: Optional[str] = None) -> Optional[str]:
+        possible_names = [
+            f"{schema}.{table_name}" if schema else table_name,
+            table_name,
+        ] + [f"{s}.{table_name}" for s in self.schemas]
+
+        for name in possible_names:
+            if self._case_insensitive_get(self.client_tables, name) is not None:
+                return name
+        return None
 
     def _case_insensitive_get(self, dict_obj: Dict[str, str], key: str) -> Optional[str]:
         if self.case_sensitive:
