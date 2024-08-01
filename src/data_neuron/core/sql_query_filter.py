@@ -13,15 +13,37 @@ class SQLQueryFilter:
     def apply_client_filter(self, sql_query: str, client_id: int) -> str:
         # Parse the entire SQL query
         parsed = sqlparse.parse(sql_query)[0]
+        print(f"Parsed query: {parsed}")
+        print(
+            f"Tokens: {[(str(token), token.ttype) for token in parsed.tokens]}")
 
         # Check if the query contains UNION, INTERSECT, or EXCEPT
         if self._contains_set_operation(parsed):
+            print("Set operation detected, handling set operation")
             return self._handle_set_operation(parsed, client_id)
         else:
+            print("No set operation detected, applying filter to single query")
             return self._apply_filter_to_single_query(sql_query, client_id)
 
     def _contains_set_operation(self, parsed):
-        return any(token.ttype is Keyword and token.value.upper() in ('UNION', 'INTERSECT', 'EXCEPT') for token in parsed.tokens)
+        set_operations = ('UNION', 'INTERSECT', 'EXCEPT')
+        for i, token in enumerate(parsed.tokens):
+            if token.ttype is Keyword:
+                # Check for 'UNION ALL' as a single token
+                if token.value.upper() == 'UNION ALL':
+                    print("Set operation found: UNION ALL")
+                    return True
+                # Check for 'UNION', 'INTERSECT', 'EXCEPT' followed by 'ALL'
+                if token.value.upper() in set_operations:
+                    next_token = parsed.token_next(i)
+                    if next_token and next_token[1].value.upper() == 'ALL':
+                        print(f"Set operation found: {token.value} ALL")
+                        return True
+                    else:
+                        print(f"Set operation found: {token.value}")
+                        return True
+        print("No set operation found")
+        return False
 
     def _extract_tables_info(self, parsed):
         tables_info = []
@@ -122,28 +144,41 @@ class SQLQueryFilter:
         return str(parsed)
 
     def _handle_set_operation(self, parsed, client_id):
+        print("Handling set operation")
         # Split the query into individual SELECT statements
         statements = []
         current_statement = []
+        set_operation = None
         for token in parsed.tokens:
-            if token.ttype is Keyword and token.value.upper() in ('UNION', 'INTERSECT', 'EXCEPT'):
-                statements.append(''.join(str(t)
-                                  for t in current_statement).strip())
-                statements.append(str(token))
-                current_statement = []
+            if token.ttype is Keyword and token.value.upper() in ('UNION', 'INTERSECT', 'EXCEPT', 'UNION ALL'):
+                if current_statement:
+                    statements.append(''.join(str(t)
+                                      for t in current_statement).strip())
+                    current_statement = []
+                set_operation = token.value.upper()
             else:
                 current_statement.append(token)
-        statements.append(''.join(str(t) for t in current_statement).strip())
+
+        if current_statement:
+            statements.append(''.join(str(t)
+                              for t in current_statement).strip())
+
+        print(f"Split statements: {statements}")
+        print(f"Set operation: {set_operation}")
 
         # Apply the filter to each SELECT statement
-        filtered_statements = [self._apply_filter_to_single_query(stmt, client_id) if not stmt.upper(
-        ) in ('UNION', 'INTERSECT', 'EXCEPT') else stmt for stmt in statements]
+        filtered_statements = []
+        for stmt in statements:
+            filtered_stmt = self._apply_filter_to_single_query(stmt, client_id)
+            filtered_statements.append(filtered_stmt)
+            print(f"Filtered statement: {filtered_stmt}")
 
         # Reconstruct the query
-        return ' '.join(filtered_statements)
+        result = f" {set_operation} ".join(filtered_statements)
+        print(f"Final result: {result}")
+        return result
 
     def _apply_filter_to_single_query(self, sql_query: str, client_id: int) -> str:
-        # This is the original apply_client_filter logic, now applied to a single SELECT statement
         parts = sql_query.split(' WHERE ', 1)
 
         parsed = sqlparse.parse(parts[0])[0]
