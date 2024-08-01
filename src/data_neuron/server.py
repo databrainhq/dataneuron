@@ -12,20 +12,13 @@ def create_app(config=None):
     if config:
         app.config.from_object(config)
 
-    data_neuron = None
-    dashboard_manager = None
-
-    def get_data_neuron():
-        nonlocal data_neuron
-        if data_neuron is None:
-            data_neuron = DataNeuron(db_config='database.yaml', context=None)
-            data_neuron.initialize()
+    def get_data_neuron(context):
+        data_neuron = DataNeuron(db_config='database.yaml', context=context)
+        data_neuron.initialize()
         return data_neuron
 
     def get_dashboard_manager():
-        nonlocal dashboard_manager
-        if dashboard_manager is None:
-            dashboard_manager = DashboardManager()
+        dashboard_manager = DashboardManager()
         return dashboard_manager
 
     @app.route('/chat', methods=['POST'])
@@ -37,24 +30,26 @@ def create_app(config=None):
         if not messages or not isinstance(messages, list):
             return jsonify({"error": "messages must be a non-empty list"}), 400
 
-        last_user_index = next((i for i in range(len(messages) - 1, -1, -1)
-                                if messages[i]['role'] == 'user'), None)
-
-        if last_user_index is None:
-            return jsonify({"error": "No user message found"}), 400
-
-        user_message = messages.pop(last_user_index)['content']
-
         try:
-            dn = get_data_neuron()
-            if context_name:
-                context_loader = ContextLoader(context_name)
-                dn.context = context_loader.load()
+            dn = get_data_neuron(context_name)
 
-            response = dn.chat(user_message)
+            # Set chat history if there are previous messages
+            if len(messages) > 1:
+                dn.set_chat_history(messages[:-1])
+
+            # Get the last user message
+            last_user_message = next((msg['content'] for msg in reversed(
+                messages) if msg['role'] == 'user'), None)
+
+            if last_user_message is None:
+                return jsonify({"error": "No user message found"}), 400
+
+            sql, response = dn.chat(last_user_message)
             serializable_response = ensure_serializable(response)
-            return jsonify({"response": serializable_response})
+            return jsonify({"response": serializable_response, "sql": sql})
         except Exception as e:
+            app.logger.error(
+                f"Error in chat endpoint: {str(e)}", exc_info=True)
             return jsonify({"error": str(e)}), 500
 
     @app.route('/reports', methods=['POST'])
