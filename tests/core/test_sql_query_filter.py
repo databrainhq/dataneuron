@@ -92,6 +92,11 @@ class TestSQLQueryFilter(unittest.TestCase):
         expected = 'SELECT product_id FROM orders WHERE "orders"."user_id" = 1 EXCEPT SELECT id FROM products WHERE "products"."company_id" = 1'
         self.assertEqual(self.filter.apply_client_filter(query, 1), expected)
 
+    def test_subquery_in_from(self):
+        query = 'SELECT * FROM (SELECT * FROM orders) AS subq'
+        expected = 'SELECT * FROM (SELECT * FROM orders WHERE "orders"."user_id" = 1) AS subq'
+        self.assertEqual(self.filter.apply_client_filter(query, 1), expected)
+
 
 if __name__ == '__main__':
     unittest.main()

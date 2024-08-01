@@ -1,5 +1,6 @@
+import re
 import sqlparse
-from sqlparse.sql import IdentifierList, Identifier, Token, TokenList
+from sqlparse.sql import IdentifierList, Identifier, Token, TokenList, Parenthesis
 from sqlparse.tokens import Keyword, DML, Name, Whitespace, Punctuation
 from typing import List, Dict, Optional
 
@@ -11,23 +12,35 @@ class SQLQueryFilter:
         self.case_sensitive = case_sensitive
 
     def apply_client_filter(self, sql_query: str, client_id: int) -> str:
-        # Parse the entire SQL query
         parsed = sqlparse.parse(sql_query)[0]
-        print(f"Parsed query: {parsed}")
-        print(
-            f"Tokens: {[(str(token), token.ttype) for token in parsed.tokens]}")
+        print(f"Initial parsed query: {parsed}")
+        result = self._apply_filter_recursive(parsed, client_id)
+        return self._cleanup_whitespace(result)
 
-        # Check if the query contains UNION, INTERSECT, or EXCEPT
-        if self._contains_set_operation(parsed):
-            print("Set operation detected, handling set operation")
+    def _apply_filter_recursive(self, parsed, client_id):
+        print(f"Applying filter to: {parsed}")
+        if isinstance(parsed, Token) and parsed.ttype is DML:
+            # This is a SELECT token, we need to process the whole statement
+            return self._apply_filter_to_single_query(str(parsed), client_id)
+        elif self._contains_set_operation(parsed):
             return self._handle_set_operation(parsed, client_id)
+        elif self._contains_subquery(parsed):
+            print("Subquery detected")
+            return self._handle_subquery(parsed, client_id)
         else:
-            print("No set operation detected, applying filter to single query")
-            return self._apply_filter_to_single_query(sql_query, client_id)
+            return self._apply_filter_to_single_query(str(parsed), client_id)
 
     def _contains_set_operation(self, parsed):
         set_operations = ('UNION', 'INTERSECT', 'EXCEPT')
-        for i, token in enumerate(parsed.tokens):
+
+        # Check if parsed is a TokenList (has tokens attribute)
+        if hasattr(parsed, 'tokens'):
+            tokens = parsed.tokens
+        else:
+            # If it's a single Token, wrap it in a list
+            tokens = [parsed]
+
+        for i, token in enumerate(tokens):
             if token.ttype is Keyword:
                 # Check for 'UNION ALL' as a single token
                 if token.value.upper() == 'UNION ALL':
@@ -35,7 +48,8 @@ class SQLQueryFilter:
                     return True
                 # Check for 'UNION', 'INTERSECT', 'EXCEPT' followed by 'ALL'
                 if token.value.upper() in set_operations:
-                    next_token = parsed.token_next(i)
+                    next_token = parsed.token_next(i) if hasattr(
+                        parsed, 'token_next') else None
                     if next_token and next_token[1].value.upper() == 'ALL':
                         print(f"Set operation found: {token.value} ALL")
                         return True
@@ -219,3 +233,57 @@ class SQLQueryFilter:
                 return f"{sql_query} WHERE {new_condition}"
         else:
             return sql_query
+
+    def _contains_subquery(self, parsed):
+        tokens = parsed.tokens if hasattr(parsed, 'tokens') else [parsed]
+
+        for token in tokens:
+            if isinstance(token, Identifier) and token.has_alias():
+                if isinstance(token.tokens[0], Parenthesis):
+                    return True
+            elif isinstance(token, Parenthesis):
+                # Check if the parenthesis contains a SELECT statement
+                for sub_token in token.tokens:
+                    if isinstance(sub_token, DML) and sub_token.value.upper() == 'SELECT':
+                        return True
+        return False
+
+    def _cleanup_whitespace(self, query: str) -> str:
+        # Remove extra spaces
+        query = ' '.join(query.split())
+        # Ensure single space after commas
+        query = re.sub(r'\s*,\s*', ', ', query)
+        return query
+
+    def _handle_subquery(self, parsed, client_id):
+        print(f"Handling subquery: {parsed}")
+        result = []
+        tokens = parsed.tokens if hasattr(parsed, 'tokens') else [parsed]
+
+        for token in tokens:
+            print(f"Processing token: {token}")
+            if isinstance(token, Identifier) and token.has_alias():
+                if isinstance(token.tokens[0], Parenthesis):
+                    print("Found subquery in parenthesis")
+                    # Exclude parentheses
+                    subquery = token.tokens[0].tokens[1:-1]
+                    subquery_str = ' '.join(str(t) for t in subquery)
+                    filtered_subquery = self._apply_filter_to_single_query(
+                        subquery_str, client_id)
+                    result.append(
+                        f"({filtered_subquery}) AS {token.get_alias()}")
+                else:
+                    result.append(str(token))
+            elif isinstance(token, Parenthesis):
+                print("Found non-aliased subquery in parenthesis")
+                subquery = token.tokens[1:-1]  # Exclude parentheses
+                subquery_str = ' '.join(str(t) for t in subquery)
+                filtered_subquery = self._apply_filter_to_single_query(
+                    subquery_str, client_id)
+                result.append(f"({filtered_subquery})")
+            else:
+                result.append(str(token))
+
+        final_result = ' '.join(result)
+        print(f"Final subquery result: {final_result}")
+        return final_result
