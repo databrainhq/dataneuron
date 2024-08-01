@@ -9,14 +9,29 @@ Currently supports SQLite, PostgreSQL, MySQL, MSSQL, CSV files(through duckdb), 
 ## Quick Usage
 
 - Install `pip install dataneuron[mssql, pdf]`
+- Set he LLM key in an enviornment variable in your system, by default it uses claude `CLAUDE_API_KEY`
 - Initialize database config: `dnn --db-init <database_type>`
 - Generate context: `dnn --init`
 - Start chat mode: `dnn --chat <contextname>` and save it as metrics to dashboards locally as yaml files.
 - Get html pdf reports for your dashboard: `dnn --report`
 - Run the API server to access chat, reports, dashboards, metrics: `dnn --server` (See API section for more)
 - Deploy the server through AWS lambda or traditional VPS machine.
-- If you have an existing Django or Flask or python project you can use this project as a library with functions like `process_chat` available.
+- If you have an existing Django or Flask or python project you can use the DataNeuron class from the pacakge directly like shown below:
 
+```python
+from dataneuron import DataNeuron
+
+# Initialize DataNeuron
+dn = DataNeuron(db_config='database.yaml', context='your_context_name')
+dn.initialize()
+
+# Ask a question
+question = "How many users do we have?"
+result = dn.query(question)
+
+print(f"SQL Query: {result['sql']}")
+print(f"Result: {result['result']}")
+```
 
 #### Base setup
 https://github.com/user-attachments/assets/2108cce7-c48c-4a45-b1c6-f7bde71c635c
@@ -207,6 +222,205 @@ Note: Doesn't generate good set of results.
 ```
 DATA_NEURON_LLM=ollama
 DATA_NEURON_LLM_MODEL=your_preferred_local_model_here
+```
+
+# Data Neuro package:
+
+## Basic Usage
+
+Here's a simple example of how to use DataNeuron:
+
+```python
+from dataneuron import DataNeuron
+
+# Initialize DataNeuron
+dn = DataNeuron(db_config='database.yaml', context='your_context_name')
+dn.initialize()
+
+# Ask a question
+question = "How many users do we have?"
+result = dn.query(question)
+
+print(f"SQL Query: {result['sql']}")
+print(f"Result: {result['result']}")
+```
+
+## Key Features
+
+### 1. Initialization
+
+The `DataNeuron` class needs to be initialized with a database configuration and a context:
+
+```python
+dn = DataNeuron(db_config='database.yaml', context='your_context_name', log=True)
+dn.initialize()
+```
+
+- `db_config`: Path to your database configuration file or a dictionary with configuration details.
+- `context`: Name of the context (semantic layer) you want to use or a dictionary with context details.
+- `log`: Boolean to enable or disable logging (default is False).
+
+### 2. Querying
+
+You can use the `query` method to ask questions in natural language:
+
+```python
+result = dn.query("What are the top 5 products by sales?")
+```
+
+The `result` dictionary contains:
+- `original_question`: The question you asked.
+- `refined_question`: The question after refinement by the system.
+- `sql`: The generated SQL query.
+- `result`: The query results.
+- `explanation`: An explanation of the query and results.
+
+### 3. Chat Functionality
+
+DataNeuron supports a chat-like interaction:
+
+```python
+sql, response = dn.chat("Who are our top customers?")
+print(f"SQL: {sql}")
+print(f"Response: {response}")
+```
+
+The `chat` method maintains a conversation history, allowing for context-aware follow-up questions.
+
+### 4. Direct SQL Execution
+
+You can execute SQL queries directly:
+
+```python
+result = dn.execute_query("SELECT * FROM users LIMIT 5")
+```
+
+### 5. Database Information
+
+Retrieve information about your database:
+
+```python
+tables = dn.get_table_list()
+table_info = dn.get_table_info("users")
+```
+
+## Advanced Usage
+
+### Setting Context
+
+You can change the context during runtime:
+
+```python
+dn.set_context("new_context_name")
+```
+
+### Setting Chat History
+
+For applications maintaining their own chat history:
+
+```python
+chat_history = [
+    {"role": "user", "content": "How many orders do we have?"},
+    {"role": "assistant", "content": "We have 1000 orders."}
+]
+dn.set_chat_history(chat_history)
+```
+
+### Error Handling
+
+Always wrap DataNeuron calls in try-except blocks to handle potential errors:
+
+```python
+try:
+    result = dn.query("What is our revenue this month?")
+except ValueError as e:
+    print(f"Error: {str(e)}")
+```
+
+## Integration Examples
+
+### Web Server with Chat History
+
+Here's an example of how to use DataNeuron in a web server application, maintaining chat history:
+
+```python
+from flask import Flask, request, jsonify
+from dataneuron import DataNeuron
+
+app = Flask(__name__)
+dn = DataNeuron(db_config='database.yaml', context='default_context')
+dn.initialize()
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    data = request.json
+    messages = data.get('messages', [])
+    context_name = data.get('context_name')
+
+    if not messages or not isinstance(messages, list):
+        return jsonify({"error": "messages must be a non-empty list"}), 400
+
+    try:
+        # Set chat history if there are previous messages
+        if len(messages) > 1:
+            dn.set_chat_history(messages[:-1])
+
+        # Get the last user message
+        last_user_message = next((msg['content'] for msg in reversed(messages) if msg['role'] == 'user'), None)
+
+        if last_user_message is None:
+            return jsonify({"error": "No user message found"}), 400
+
+        sql, response = dn.chat(last_user_message)
+        return jsonify({
+            "response": response['data'],
+            "sql": sql,
+            "column_names": response['column_names']
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+if __name__ == '__main__':
+    app.run()
+```
+
+### Generating HTML Reports
+
+This example demonstrates how to use DataNeuron with DashboardManager to generate HTML reports:
+
+```python
+from flask import Flask, request, jsonify, Response
+from dataneuron import DataNeuron, DashboardManager
+
+app = Flask(__name__)
+
+def get_data_neuron(context=None):
+    data_neuron = DataNeuron(db_config='database.yaml', context=context)
+    data_neuron.initialize()
+    return data_neuron
+
+def get_dashboard_manager():
+    return DashboardManager()
+
+@app.route('/reports', methods=['POST'])
+def generate_report():
+    data = request.json
+    dashboard_name = data.get('dashboard_name')
+    instruction = data.get('instruction')
+    image_path = data.get('image_path')
+
+    if not dashboard_name or not instruction:
+        return jsonify({"error": "dashboard_name and instruction are required"}), 400
+
+    try:
+        dm = get_dashboard_manager()
+        html_content = dm.generate_report_html(dashboard_name, instruction, image_path)
+        return Response(html_content, mimetype='text/html')
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+if __name__ == '__main__':
+    app.run()
 ```
 
 # Data Neuron API
