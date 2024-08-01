@@ -1,6 +1,9 @@
 import os
+import re
 import yaml
 from ..db_operations.factory import DatabaseFactory
+from ..prompts.report_generation_prompt import report_generation_prompt
+from ..api.main import call_neuron_vision_api, call_neuron_api
 from ..utils.print import print_warning
 
 
@@ -61,3 +64,34 @@ class DashboardManager:
                     f"Error executing query for metric '{metric['name']}': {str(e)}")
                 results[metric['name']] = f"Error: {str(e)}"
         return results
+
+    def generate_report_html(self, dashboard_name, instruction, image_path=None):
+        dashboard = self.load_dashboard(dashboard_name)
+        if not dashboard:
+            return f"<html><body><h1>Error: Dashboard '{dashboard_name}' not found.</h1></body></html>"
+
+        results = self.execute_dashboard_queries(dashboard_name)
+        results_yaml = yaml.dump(results, default_flow_style=False)
+
+        prompt = report_generation_prompt(
+            dashboard_name, results_yaml, instruction)
+
+        if image_path and os.path.exists(image_path):
+            response = call_neuron_vision_api(prompt, image_path)
+        else:
+            response = call_neuron_api(prompt)
+
+        return self.extract_html_from_response(response)
+
+    @staticmethod
+    def extract_html_from_response(response):
+        html_pattern = re.compile(
+            r'<!DOCTYPE html>.*?</html>', re.DOTALL | re.IGNORECASE)
+        match = html_pattern.search(response)
+
+        if match:
+            html_content = match.group(0)
+        else:
+            html_content = response
+
+        return html_content

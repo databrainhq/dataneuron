@@ -137,7 +137,7 @@ class DataNeuron:
             sql_query = llm_response[sql_start+5:sql_end].strip()
             result = self.execute_query(sql_query)
             result_str = str(result[:MAX_RESULT_RECORDS])
-            response += f"SQL query generated: {sql_query}, Result samplet: {result_str}\n"
+            response += f"SQL query generated: {sql_query}, Result sample: {result_str}\n"
 
         # Update chat history
         self.chat_history.append({"role": "user", "content": message})
@@ -173,3 +173,19 @@ class DataNeuron:
                 formatted_history += f"Assistant: {msg['content']}\n"
             formatted_history += "\n"
         return formatted_history
+
+    def set_context(self, context_name: str):
+        context_loader = ContextLoader(context_name)
+        self.context = context_loader.load()
+        if self.query_refiner:
+            self.query_refiner.update_context(self.context)
+        else:
+            self.query_refiner = QueryRefiner(
+                self.context, self.db, context_loader)
+
+    def set_chat_history(self, messages: List[Dict[str, str]]):
+        self.chat_history = [
+            {"role": msg["role"], "content": msg["content"]}
+            for msg in messages
+            if msg["role"] in ["user", "assistant"]
+        ]

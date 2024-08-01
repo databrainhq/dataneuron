@@ -12,8 +12,9 @@ def chat_cmd(context):
     dn.initialize()
     dashboard_manager = DashboardManager()
 
-    print_info("Starting chat session. Type 'exit' to end the conversation.")
-    print_info("Available commands:")
+    print_info(
+        "Starting chat session. You can start chatting with your data. Type 'exit' to end the conversation.")
+    print_info("Other Available commands:")
     print_info(
         "  /save <dashboard_name> - Save the last query to a dashboard")
     print_info("  /list - List all available dashboards")

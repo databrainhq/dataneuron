@@ -12,6 +12,9 @@ class QueryRefiner:
         self.db_helper = DatabaseHelper(self.db.db_type, self.db)
         self.context_loader = context_loader
 
+    def update_context(self, new_context: Dict):
+        self.context = new_context
+
     def get_sample_data(self) -> str:
         sample_data = "Sample Data:\n"
         for table_name in self.context['tables']:
