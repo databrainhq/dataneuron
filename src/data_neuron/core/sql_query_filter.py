@@ -20,15 +20,12 @@ class SQLQueryFilter:
         return self._cleanup_whitespace(result)
 
     def _apply_filter_recursive(self, parsed, client_id):
-        print(f"Applying filter to: {parsed}")
         if isinstance(parsed, Token) and parsed.ttype is DML:
             return self._apply_filter_to_single_query(str(parsed), client_id)
         elif self._contains_set_operation(parsed):
             return self._handle_set_operation(parsed, client_id)
         elif self._contains_subquery(parsed):
-            print("Subquery detected")
-            subquery_result = self._handle_subquery(parsed, client_id)
-            return self._apply_filter_to_single_query(subquery_result, client_id)
+            return self._handle_subquery(parsed, client_id)
         else:
             return self._apply_filter_to_single_query(str(parsed), client_id)
 

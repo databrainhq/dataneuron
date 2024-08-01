@@ -12,7 +12,8 @@ class ContextLoader:
             'tables': {},
             'relationships': {},
             'global_definitions': {},
-            'database': {}
+            'database': {},
+            'client_info': {}
         }
 
     def load(self):
@@ -94,8 +95,7 @@ class ContextLoader:
 
     def _load_client_tables(self):
         """Load client-specific table information."""
-        client_tables_path = os.path.join(
-            self.context_dir, 'client_tables.yaml')
-        if os.path.exists(client_tables_path):
-            with open(client_tables_path, 'r') as f:
-                self.context['client_tables'] = yaml.safe_load(f)
+        client_info_path = os.path.join(self.context_dir, 'client_info.yaml')
+        if os.path.exists(client_info_path):
+            with open(client_info_path, 'r') as f:
+                self.context['client_info'] = yaml.safe_load(f)

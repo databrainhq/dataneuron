@@ -7,6 +7,7 @@ from ..db_operations.factory import DatabaseFactory
 from ..api.main import call_neuron_api
 from ..prompts.sql_query_prompt import sql_query_prompt
 from .query_refiner import QueryRefiner
+from .sql_query_filter import SQLQueryFilter
 from ..utils.print import print_info, print_prompt, print_warning, print_success, print_error, create_box
 
 
@@ -22,6 +23,7 @@ class DataNeuron:
         self.query_refiner = None
         self.chat_history = []
         self.log = log
+        self.filter = None
 
     def initialize(self):
         """Initialize the database connection and load the context."""
@@ -36,6 +38,10 @@ class DataNeuron:
             self.context = context_loader.load()
             self.query_refiner = QueryRefiner(
                 self.context, self.db, context_loader)
+            client_info = self.context.get("client_info", {})
+            client_tables = client_info.get("tables", {})
+            schemas = client_info.get("schemas", ["main"])
+            self.filter = SQLQueryFilter(client_tables, schemas)
         elif self.context is None:
             self.context = {}
 
@@ -120,11 +126,6 @@ class DataNeuron:
         }
 
     def chat(self, message: str) -> Tuple[Optional[str], Any]:
-        sql = f"""
-        SELECT COUNT(id) AS total_orders FROM "orders"
-        """
-        sql_query = self._apply_client_filter(sql)
-        return
         """Process a chat message, maintain chat history, and return a response."""
         if not self.context or not self.db:
             raise ValueError(
@@ -315,65 +316,6 @@ class DataNeuron:
             print_info(f"Set client context to client ID: {client_id}")
 
     def _apply_client_filter(self, sql_query: str) -> str:
-        """Apply client-specific filtering to the SQL query."""
-        if not self.current_client_id or not self.context['client_tables']:
-            return sql_query
-
-        parsed = sqlparse.parse(sql_query)[0]
-        tables = self._extract_table_names(parsed)
-
-        print("SQL Query:", sql_query)
-        print("Extracted Tables:", tables)
-        print("Client Tables:", self.context['client_tables'])
-
-        filters = []
-        for table in tables:
-            # Check for fully qualified, simple, and schema-qualified table names
-            full_table_name = table
-            simple_table_name = table.split('.')[-1]
-            possible_schema_names = [
-                f"{schema}.{simple_table_name}" for schema in self.context.get('schemas', ['main'])]
-
-            matching_table = next((t for t in [full_table_name, simple_table_name] + possible_schema_names
-                                   if t in self.context['client_tables']), None)
-
-            if matching_table:
-                client_id_column = self.context['client_tables'][matching_table]
-                filters.append(
-                    f"{table}.{client_id_column} = {self.current_client_id}")
-
-        print("Filters:", filters)
-
-        if filters:
-            where_clause = " AND ".join(filters)
-            if "WHERE" in sql_query.upper():
-                sql_query = sql_query.replace(
-                    "WHERE", f"WHERE {where_clause} AND ", 1)
-            else:
-                sql_query = f"{sql_query} WHERE {where_clause}"
-
-        print("Modified SQL Query:", sql_query)
+        if self.current_client_id and self.filter:
+            return self.filter.apply_client_filter(sql_query, self.current_client_id)
         return sql_query
-
-    def _extract_table_names(self, parsed):
-        tables = set()
-        from_seen = False
-        for token in parsed.tokens:
-            if from_seen:
-                if token.ttype is Keyword and token.value.upper() in ('WHERE', 'GROUP', 'ORDER', 'LIMIT'):
-                    break
-                if isinstance(token, IdentifierList):
-                    for identifier in token.get_identifiers():
-                        tables.add(self._get_table_name(identifier))
-                elif isinstance(token, Identifier):
-                    tables.add(self._get_table_name(token))
-            elif token.ttype is Keyword and token.value.upper() == 'FROM':
-                from_seen = True
-        return tables
-
-    def _get_table_name(self, identifier):
-        if isinstance(identifier, Function):
-            return None
-        if identifier.has_alias():
-            return identifier.get_real_name()
-        return str(identifier)

@@ -1,8 +1,15 @@
 # Data Neuron
 
-Data Neuron is a powerful AI-driven data framework to create and maintain AI DATA analyst through CLI and as an API.
+Data Neuron is a framework for data people (datascientist, data engineers..) to
+chat with the data (text2sql) but with an easy to maintain and continually improving semantic layer in the form yml files.
 
-Use the API to let your business users chat with your Data through slack or teams or use for internally tools. Use the API to create dynamic feature rich (inspired by Claude Artifacts) html reports that you can send in email or slack.
+### Quick Start
+
+- Install the library using `pip`.
+- Choose your specific set of tables and label them with alias, description, business specific glossary/definitions, client/tenant tables(if it is for your end users).
+- Chat in cli using `dnn --chat <contextname>` to test and validate how LLM performs
+- Once your semantic layer is ready, start integrating within your existing python app through our sdk like
+  `from dataneuron import DataNeuron` and build internal slack app or build customer facing chatbot or email reports. Or deploy your semantic layer + dataneuron as an API endpoint to AWS lambda or VPS machine.
 
 Currently supports SQLite, PostgreSQL, MySQL, MSSQL, CSV files(through duckdb), Clickhouse. Works with major LLMs like Claude (default), OpenAI, LLAMA etc(through groq, nvidia, ..), OLLAMA.
 
@@ -25,6 +32,7 @@ from dataneuron import DataNeuron
 dn = DataNeuron(db_config='database.yaml', context='your_context_name')
 dn.initialize()
 
+dn.set_client_context("userid") # optional: if you want to make it scoped specific to your customer/tenant
 # Ask a question
 question = "How many users do we have?"
 result = dn.query(question)
@@ -34,21 +42,18 @@ print(f"Result: {result['result']}")
 ```
 
 #### Base setup
+
 https://github.com/user-attachments/assets/2108cce7-c48c-4a45-b1c6-f7bde71c635c
 
 #### Reports pdf
 
 https://github.com/user-attachments/assets/de71a220-4bd9-4f53-b245-064fcaca85bb
 
-
 ### As API
 
 https://github.com/user-attachments/assets/0fd477cd-ef8b-44ed-993a-b1ad16cfd82a
 
-
 https://github.com/user-attachments/assets/8d363c0a-e12a-47ff-b4e4-e5f0bf302224
-
-
 
 ## Features
 
@@ -108,7 +113,6 @@ Data Neuron can be installed with different database support options:
    ```
    pip install dataneuron[clickhouse]
    ```
-
 
 Note: if you use zsh, you might have to use quotes around the package name like. For csv right now it doesn't
 support nested folder structure just a folder with csv files, each csv will be treated as a table.
@@ -269,6 +273,7 @@ result = dn.query("What are the top 5 products by sales?")
 ```
 
 The `result` dictionary contains:
+
 - `original_question`: The question you asked.
 - `refined_question`: The question after refinement by the system.
 - `sql`: The generated SQL query.
@@ -303,6 +308,29 @@ Retrieve information about your database:
 tables = dn.get_table_list()
 table_info = dn.get_table_info("users")
 ```
+
+### 6. Client/Tenant scoped queries/chat
+
+Firt mark the client column in tables
+
+```
+dnn --mc
+```
+
+Set the client context before querying or chatting
+
+```
+dn = DataNeuron(db_config='database.yaml', context='your_context')
+dn.initialize()
+dn.set_client_context(client_id)
+result = dn.query("Your query here")
+```
+
+Every query that is generated will be filtered with client_id column based on the client column tables
+that you had given earlier using `dnn --mc`, you can manually edit that file as well.
+
+NOTE: All yaml files can be edited as long as the base structure is preserved, you can add any new columns
+to tables yaml or definitions yaml, the structure involving name alone shouldn't be removed.
 
 ## Advanced Usage
 
@@ -563,7 +591,6 @@ Remember to set up any necessary environment variables and ensure your Lambda fu
 ```
 
 You can mention the `--prod` so the flask server runs in a prod mode, you can mention other options as needed.
-
 
 ### Contributing
 

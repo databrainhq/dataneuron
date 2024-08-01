@@ -33,7 +33,6 @@ def chat_cmd(context):
             handle_special_command(user_input, last_query, dashboard_manager)
             continue
 
-        dn.set_client_context(1)
         sql, response = dn.chat(user_input)
         print()  # Add a blank line for better readability
 
