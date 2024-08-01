@@ -1,4 +1,7 @@
+import sqlparse
 from typing import Union, Dict, List, Any, Tuple, Optional
+from sqlparse.sql import IdentifierList, Identifier, Function
+from sqlparse.tokens import Keyword, DML
 from .context_loader import ContextLoader
 from ..db_operations.factory import DatabaseFactory
 from ..api.main import call_neuron_api
@@ -95,6 +98,9 @@ class DataNeuron:
             print_prompt(f"Explanation: {explanation}")
             print_info(f"References: {references}")
 
+        if self.current_client_id:
+            sql_query = self._apply_client_filter(sql_query)
+
         result, column_names = self.execute_query_with_column_names(sql_query)
 
         if self.log:
@@ -114,6 +120,11 @@ class DataNeuron:
         }
 
     def chat(self, message: str) -> Tuple[Optional[str], Any]:
+        sql = f"""
+        SELECT COUNT(id) AS total_orders FROM "orders"
+        """
+        sql_query = self._apply_client_filter(sql)
+        return
         """Process a chat message, maintain chat history, and return a response."""
         if not self.context or not self.db:
             raise ValueError(
@@ -137,6 +148,7 @@ class DataNeuron:
             response = "I'm sorry, but I couldn't understand your query in the context of our conversation and the database structure."
             if self.log:
                 print_warning("Unable to refine the query.")
+            return None, response
         else:
             prompt = sql_query_prompt(
                 refined_query, self.context, self.db.db_type)
@@ -150,7 +162,11 @@ class DataNeuron:
                 if self.log:
                     print_warning(
                         "The language model was unable to generate a valid SQL query.")
+                return None, response
             else:
+                if self.current_client_id:
+                    sql_query = self._apply_client_filter(sql_query)
+
                 result, column_names = self.execute_query_with_column_names(
                     sql_query)
                 result_str = str(result[:MAX_RESULT_RECORDS])
@@ -291,3 +307,73 @@ class DataNeuron:
             # Multiple rows or columns
             table = tabulate(result, headers=column_names, tablefmt="grid")
             print(table)
+
+    def set_client_context(self, client_id: int):
+        """Set the current client context for filtering queries."""
+        self.current_client_id = client_id
+        if self.log:
+            print_info(f"Set client context to client ID: {client_id}")
+
+    def _apply_client_filter(self, sql_query: str) -> str:
+        """Apply client-specific filtering to the SQL query."""
+        if not self.current_client_id or not self.context['client_tables']:
+            return sql_query
+
+        parsed = sqlparse.parse(sql_query)[0]
+        tables = self._extract_table_names(parsed)
+
+        print("SQL Query:", sql_query)
+        print("Extracted Tables:", tables)
+        print("Client Tables:", self.context['client_tables'])
+
+        filters = []
+        for table in tables:
+            # Check for fully qualified, simple, and schema-qualified table names
+            full_table_name = table
+            simple_table_name = table.split('.')[-1]
+            possible_schema_names = [
+                f"{schema}.{simple_table_name}" for schema in self.context.get('schemas', ['main'])]
+
+            matching_table = next((t for t in [full_table_name, simple_table_name] + possible_schema_names
+                                   if t in self.context['client_tables']), None)
+
+            if matching_table:
+                client_id_column = self.context['client_tables'][matching_table]
+                filters.append(
+                    f"{table}.{client_id_column} = {self.current_client_id}")
+
+        print("Filters:", filters)
+
+        if filters:
+            where_clause = " AND ".join(filters)
+            if "WHERE" in sql_query.upper():
+                sql_query = sql_query.replace(
+                    "WHERE", f"WHERE {where_clause} AND ", 1)
+            else:
+                sql_query = f"{sql_query} WHERE {where_clause}"
+
+        print("Modified SQL Query:", sql_query)
+        return sql_query
+
+    def _extract_table_names(self, parsed):
+        tables = set()
+        from_seen = False
+        for token in parsed.tokens:
+            if from_seen:
+                if token.ttype is Keyword and token.value.upper() in ('WHERE', 'GROUP', 'ORDER', 'LIMIT'):
+                    break
+                if isinstance(token, IdentifierList):
+                    for identifier in token.get_identifiers():
+                        tables.add(self._get_table_name(identifier))
+                elif isinstance(token, Identifier):
+                    tables.add(self._get_table_name(token))
+            elif token.ttype is Keyword and token.value.upper() == 'FROM':
+                from_seen = True
+        return tables
+
+    def _get_table_name(self, identifier):
+        if isinstance(identifier, Function):
+            return None
+        if identifier.has_alias():
+            return identifier.get_real_name()
+        return str(identifier)

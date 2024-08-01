@@ -3,6 +3,7 @@ from .cmd.ask_cmd import query
 from .cmd.db_init_cmd import init_database_config
 from .cmd.chat_cmd import chat_cmd
 from .cmd.report_cmd import generate_report  # New import
+from .cmd.mark_clients_cmd import mark_client_tables
 from .server import run_server
 from .cmd.context_init_cmd import ContextInitializer
 
@@ -25,7 +26,8 @@ VERSION = "0.2.2"  # Update this as you release new versions
 @click.option('--prod', is_flag=True, help='Run the server in production mode.')
 @click.option('--host', default='0.0.0.0', help='Host to run the server on')
 @click.option('--port', type=int, default=8040, help='Port to run the server on')
-def cli(init, db_init, chat, version, report, context, ask, server, prod, host, port):
+@click.option('--mc', is_flag=True, help='Mark tables with client ID columns.')
+def cli(init, db_init, chat, version, report, context, ask, server, prod, host, port, mc):
     if init:
         initializer = ContextInitializer()
         initializer.init_context()
@@ -45,6 +47,8 @@ def cli(init, db_init, chat, version, report, context, ask, server, prod, host, 
         if prod:
             os.environ['FLASK_ENV'] = 'production'
         run_server(host=host, port=port, debug=debug)
+    elif mc:
+        mark_client_tables()
     else:
         click.echo(cli.get_help(click.get_current_context()))
 

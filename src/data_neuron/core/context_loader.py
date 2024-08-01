@@ -21,6 +21,7 @@ class ContextLoader:
         self._load_relationships()
         self._load_global_definitions()
         self._load_sample_data()
+        self._load_client_tables()
         return self.context
 
     def get_formatted_context(self) -> str:
@@ -90,3 +91,11 @@ class ContextLoader:
         if os.path.exists(sample_data_path):
             with open(sample_data_path, 'r') as f:
                 self.context['sample_data'] = yaml.safe_load(f)
+
+    def _load_client_tables(self):
+        """Load client-specific table information."""
+        client_tables_path = os.path.join(
+            self.context_dir, 'client_tables.yaml')
+        if os.path.exists(client_tables_path):
+            with open(client_tables_path, 'r') as f:
+                self.context['client_tables'] = yaml.safe_load(f)
