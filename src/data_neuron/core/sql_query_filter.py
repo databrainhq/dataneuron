@@ -1,6 +1,6 @@
 import sqlparse
 from sqlparse.sql import IdentifierList, Identifier, Token, TokenList
-from sqlparse.tokens import Keyword, DML, Name, Whitespace
+from sqlparse.tokens import Keyword, DML, Name, Whitespace, Punctuation
 from typing import List, Dict, Optional
 
 
@@ -11,7 +11,10 @@ class SQLQueryFilter:
         self.case_sensitive = case_sensitive
 
     def apply_client_filter(self, sql_query: str, client_id: int) -> str:
-        parsed = sqlparse.parse(sql_query)[0]
+        # Split the query at the WHERE keyword
+        parts = sql_query.split(' WHERE ', 1)
+
+        parsed = sqlparse.parse(parts[0])[0]
         tables_info = self._extract_tables_info(parsed)
 
         filters = []
@@ -29,8 +32,24 @@ class SQLQueryFilter:
                     f'{self._quote_identifier(table_reference)}.{self._quote_identifier(client_id_column)} = {client_id}')
 
         if filters:
-            where_clause = " AND ".join(filters)
-            return self._inject_where_clause(parsed, where_clause)
+            new_condition = " AND ".join(filters)
+            if len(parts) > 1:
+                # There was an existing WHERE clause
+                where_parts = parts[1].split(' GROUP BY ', 1)
+                existing_where = where_parts[0].strip()
+                group_by = f" GROUP BY {where_parts[1]}" if len(
+                    where_parts) > 1 else ""
+
+                # Check if the existing WHERE clause contains OR conditions
+                if ' OR ' in existing_where.upper():
+                    # If it contains OR, wrap it in parentheses if not already
+                    if not (existing_where.startswith('(') and existing_where.endswith(')')):
+                        existing_where = f"({existing_where})"
+
+                return f"{parts[0]} WHERE {existing_where} AND {new_condition}{group_by}"
+            else:
+                # There was no existing WHERE clause
+                return f"{sql_query} WHERE {new_condition}"
         else:
             return sql_query
 
@@ -98,20 +117,36 @@ class SQLQueryFilter:
         return f'"{identifier}"'
 
     def _inject_where_clause(self, parsed, where_clause):
+        print(f"Parsed tokens: {[str(token) for token in parsed.tokens]}")
         where_index = next((i for i, token in enumerate(parsed.tokens)
                             if token.ttype is Keyword and token.value.upper() == 'WHERE'), None)
+        print(f"WHERE index: {where_index}")
 
         if where_index is not None:
-            # WHERE clause exists, inject our condition
-            parsed.tokens.insert(where_index + 1, Token(Whitespace, ' '))
-            parsed.tokens.insert(where_index + 2, Token(Name, where_clause))
-            parsed.tokens.insert(where_index + 3, Token(Whitespace, ' '))
-            parsed.tokens.insert(where_index + 4, Token(Keyword, 'AND'))
+            print("Existing WHERE clause found")
+            # WHERE clause exists, find the end of the existing WHERE clause
+            end_where_index = len(parsed.tokens) - 1
+            for i in range(where_index + 1, len(parsed.tokens)):
+                token = parsed.tokens[i]
+                if token.ttype is Keyword and token.value.upper() in ('GROUP', 'ORDER', 'LIMIT'):
+                    end_where_index = i - 1
+                    break
+            print(f"End of WHERE clause index: {end_where_index}")
+
+            # Insert our condition at the end of the existing WHERE clause
+            parsed.tokens.insert(end_where_index + 1, Token(Whitespace, ' '))
+            parsed.tokens.insert(end_where_index + 2, Token(Keyword, 'AND'))
+            parsed.tokens.insert(end_where_index + 3, Token(Whitespace, ' '))
+            parsed.tokens.insert(end_where_index + 4,
+                                 Token(Name, where_clause))
         else:
+            print("No existing WHERE clause found")
             # No WHERE clause, add one
             parsed.tokens.append(Token(Whitespace, ' '))
             parsed.tokens.append(Token(Keyword, 'WHERE'))
             parsed.tokens.append(Token(Whitespace, ' '))
             parsed.tokens.append(Token(Name, where_clause))
 
+        print(
+            f"Final parsed tokens: {[str(token) for token in parsed.tokens]}")
         return str(parsed)
