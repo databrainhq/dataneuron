@@ -407,15 +407,18 @@ class SQLQueryFilter:
                     filtered_subquery_str = str(filtered_subquery)
                     logger.debug(f"Filtered subquery: {filtered_subquery_str}")
                     try:
-                        new_subquery_tokens = sqlparse.parse(
-                            f"({filtered_subquery_str})")[0].tokens
+                        new_subquery_tokens = [
+                            Token(Whitespace, ' '),
+                            Token(Punctuation, '(')
+                        ] + sqlparse.parse(filtered_subquery_str)[0].tokens + [Token(Punctuation, ')')]
                         new_where_tokens.extend([token] + new_subquery_tokens)
                         logger.debug(
                             f"Added filtered subquery to WHERE clause: {new_where_tokens[-len(new_subquery_tokens)-1:]}")
                     except Exception as e:
                         logger.error(f"Error parsing filtered subquery: {e}")
-                        # Fallback to original subquery
-                        new_where_tokens.extend([token, next_token[1]])
+                        # Fallback to original subquery with space
+                        new_where_tokens.extend(
+                            [token, Token(Whitespace, ' '), next_token[1]])
                     i += 2  # Skip the next token as we've handled it
                 else:
                     logger.debug(
