@@ -17,14 +17,31 @@ class SQLQueryFilter:
         self.filtered_tables = set()
 
     def apply_client_filter(self, sql_query: str, client_id: int) -> str:
-        logger.info(f"Applying client filter to query: {sql_query}")
         self.filtered_tables = set()
         parsed = sqlparse.parse(sql_query)[0]
-        logger.debug(f"Initial parsed query: {parsed}")
-        result = self._apply_filter_recursive(parsed, client_id)
+
+        logger.debug(f"Original query: {sql_query}")
+        logger.debug(
+            f"Parsed query tokens: {[str(token) for token in parsed.tokens]}")
+
+        is_cte = self._is_cte_query(parsed)
+        logger.debug(f"Is CTE query: {is_cte}")
+
+        if is_cte:
+            logger.debug(f"CTE query detected: {parsed}")
+            result = self._handle_cte_query(parsed, client_id)
+        else:
+            result = self._apply_filter_recursive(parsed, client_id)
+
+        logger.debug(f"Final result after filtering: {result}")
+
         return self._cleanup_whitespace(str(result))
 
     def _apply_filter_recursive(self, parsed, client_id):
+        if self._is_cte_query(parsed):
+            logger.debug(f"Applying filter to CTE recursively: {parsed}")
+            return self._handle_cte_query(parsed, client_id)
+
         logger.debug(f"Applying filter recursively to: {parsed}")
         if isinstance(parsed, Token) and parsed.ttype is DML:
             return self._apply_filter_to_single_query(str(parsed), client_id)
@@ -267,7 +284,6 @@ class SQLQueryFilter:
         tokens = parsed.tokens if hasattr(parsed, 'tokens') else [parsed]
 
         for i, token in enumerate(tokens):
-            logger.debug(f"Examining token: {token}, Type: {type(token)}")
             if isinstance(token, Identifier) and token.has_alias():
                 if isinstance(token.tokens[0], Parenthesis):
                     logger.debug(f"Found subquery in identifier: {token}")
@@ -284,15 +300,9 @@ class SQLQueryFilter:
                 logger.debug("Examining WHERE clause")
                 in_found = False
                 for j, sub_token in enumerate(token.tokens):
-                    logger.debug(
-                        f"Examining sub_token in WHERE: {sub_token}, Type: {type(sub_token)}")
                     if in_found:
                         if isinstance(sub_token, Parenthesis):
-                            logger.debug(
-                                f"Examining parenthesis after IN: {sub_token}")
                             if any(t.ttype is DML and t.value.upper() == 'SELECT' for t in sub_token.tokens):
-                                logger.debug(
-                                    f"Found subquery in IN clause: {sub_token}")
                                 return True
                         elif hasattr(sub_token, 'ttype') and not sub_token.is_whitespace:
                             # Check if the token is a parenthesis-like structure
@@ -350,7 +360,6 @@ class SQLQueryFilter:
         tokens = parsed.tokens if hasattr(parsed, 'tokens') else [parsed]
 
         for token in tokens:
-            logger.debug(f"Processing token: {token}")
             if isinstance(token, Identifier) and token.has_alias():
                 if isinstance(token.tokens[0], Parenthesis):
                     logger.debug("Found subquery in parenthesis")
@@ -389,105 +398,196 @@ class SQLQueryFilter:
 
     def _handle_where_subqueries(self, where_clause, client_id):
         logger.info(f"Handling WHERE clause subqueries in: {where_clause}")
-        new_where_tokens = []
-        i = 0
-        while i < len(where_clause.tokens):
-            token = where_clause.tokens[i]
-            logger.debug(f"Processing token: {token}, Type: {type(token)}")
-            if token.ttype is Keyword and token.value.upper() == 'IN':
-                logger.debug("Found 'IN' keyword")
-                next_token = where_clause.token_next(i)
-                if next_token and isinstance(next_token[1], Parenthesis):
-                    logger.debug("Found parenthesis after 'IN'")
-                    subquery = next_token[1].tokens[1:-1]
+        if self._is_cte_query(where_clause):
+            logger.debug(f"Handling WHERE clause for CTE: {where_clause}")
+            cte_part = self._extract_cte_definition(where_clause)
+            main_query = self._extract_main_query(where_clause)
+
+            filtered_cte = self._apply_filter_recursive(cte_part, client_id)
+
+            if 'WHERE' not in str(main_query).upper():
+                logger.debug("Adding WHERE clause to main query in CTE")
+                main_query = self._add_where_clause_to_main_query(
+                    main_query, client_id)
+
+            return f"{filtered_cte} {main_query}"
+        else:
+            new_where_tokens = []
+            i = 0
+            while i < len(where_clause.tokens):
+                token = where_clause.tokens[i]
+                if token.ttype is Keyword and token.value.upper() == 'IN':
+                    logger.debug("Found 'IN' keyword")
+                    next_token = where_clause.token_next(i)
+                    if next_token and isinstance(next_token[1], Parenthesis):
+                        logger.debug("Found parenthesis after 'IN'")
+                        subquery = next_token[1].tokens[1:-1]
+                        subquery_str = ' '.join(str(t) for t in subquery)
+                        logger.debug(f"Subquery: {subquery_str}")
+                        filtered_subquery = self._apply_filter_recursive(
+                            sqlparse.parse(subquery_str)[0], client_id)
+                        filtered_subquery_str = str(filtered_subquery)
+                        logger.debug(
+                            f"Filtered subquery: {filtered_subquery_str}")
+                        try:
+                            new_subquery_tokens = [
+                                Token(Whitespace, ' '),
+                                Token(Punctuation, '(')
+                            ] + sqlparse.parse(filtered_subquery_str)[0].tokens + [Token(Punctuation, ')')]
+                            new_where_tokens.extend(
+                                [token] + new_subquery_tokens)
+                            logger.debug(
+                                f"Added filtered subquery to WHERE clause: {new_where_tokens[-len(new_subquery_tokens)-1:]}")
+                        except Exception as e:
+                            logger.error(
+                                f"Error parsing filtered subquery: {e}")
+                            # Fallback to original subquery with space
+                            new_where_tokens.extend(
+                                [token, Token(Whitespace, ' '), next_token[1]])
+                        i += 2  # Skip the next token as we've handled it
+                    else:
+                        logger.debug(
+                            "No parenthesis after 'IN', adding 'IN' token as is")
+                        new_where_tokens.append(token)
+                elif isinstance(token, Parenthesis):
+                    logger.debug("Found parenthesis, checking for subquery")
+                    subquery = token.tokens[1:-1]
                     subquery_str = ' '.join(str(t) for t in subquery)
-                    logger.debug(f"Subquery: {subquery_str}")
-                    filtered_subquery = self._apply_filter_recursive(
-                        sqlparse.parse(subquery_str)[0], client_id)
-                    filtered_subquery_str = str(filtered_subquery)
-                    logger.debug(f"Filtered subquery: {filtered_subquery_str}")
-                    try:
-                        new_subquery_tokens = [
-                            Token(Whitespace, ' '),
-                            Token(Punctuation, '(')
-                        ] + sqlparse.parse(filtered_subquery_str)[0].tokens + [Token(Punctuation, ')')]
-                        new_where_tokens.extend([token] + new_subquery_tokens)
+                    if self._contains_subquery(sqlparse.parse(subquery_str)[0]):
+                        logger.debug("Parenthesis contains subquery")
+                        filtered_subquery = self._apply_filter_recursive(
+                            sqlparse.parse(subquery_str)[0], client_id)
+                        filtered_subquery_str = str(filtered_subquery)
                         logger.debug(
-                            f"Added filtered subquery to WHERE clause: {new_where_tokens[-len(new_subquery_tokens)-1:]}")
-                    except Exception as e:
-                        logger.error(f"Error parsing filtered subquery: {e}")
-                        # Fallback to original subquery with space
-                        new_where_tokens.extend(
-                            [token, Token(Whitespace, ' '), next_token[1]])
-                    i += 2  # Skip the next token as we've handled it
-                else:
-                    logger.debug(
-                        "No parenthesis after 'IN', adding 'IN' token as is")
-                    new_where_tokens.append(token)
-            elif isinstance(token, Parenthesis):
-                logger.debug("Found parenthesis, checking for subquery")
-                subquery = token.tokens[1:-1]
-                subquery_str = ' '.join(str(t) for t in subquery)
-                if self._contains_subquery(sqlparse.parse(subquery_str)[0]):
-                    logger.debug("Parenthesis contains subquery")
-                    filtered_subquery = self._apply_filter_recursive(
-                        sqlparse.parse(subquery_str)[0], client_id)
-                    filtered_subquery_str = str(filtered_subquery)
-                    logger.debug(f"Filtered subquery: {filtered_subquery_str}")
-                    try:
-                        new_subquery_tokens = sqlparse.parse(
-                            f"({filtered_subquery_str})")[0].tokens
-                        new_where_tokens.extend(new_subquery_tokens)
+                            f"Filtered subquery: {filtered_subquery_str}")
+                        try:
+                            new_subquery_tokens = sqlparse.parse(
+                                f"({filtered_subquery_str})")[0].tokens
+                            new_where_tokens.extend(new_subquery_tokens)
+                            logger.debug(
+                                f"Added filtered subquery to WHERE clause: {new_where_tokens[-len(new_subquery_tokens):]}")
+                        except Exception as e:
+                            logger.error(
+                                f"Error parsing filtered subquery: {e}")
+                            # Fallback to original subquery
+                            new_where_tokens.append(token)
+                    else:
                         logger.debug(
-                            f"Added filtered subquery to WHERE clause: {new_where_tokens[-len(new_subquery_tokens):]}")
-                    except Exception as e:
-                        logger.error(f"Error parsing filtered subquery: {e}")
-                        # Fallback to original subquery
+                            "Parenthesis does not contain subquery, adding as is")
                         new_where_tokens.append(token)
                 else:
-                    logger.debug(
-                        "Parenthesis does not contain subquery, adding as is")
                     new_where_tokens.append(token)
-            else:
-                logger.debug(f"Adding token as is: {token}")
-                new_where_tokens.append(token)
-            i += 1
+                i += 1
 
-        # Add the client filter for the main table
-        try:
-            main_table = self._extract_main_table(where_clause)
-            logger.debug(f"Main table extracted: {main_table}")
-            if main_table:
-                main_table_filter = self._generate_client_filter(
-                    main_table, client_id)
-                logger.debug(
-                    f"Generated main table filter: {main_table_filter}")
-                if main_table_filter:
-                    filter_tokens = [
-                        Token(Whitespace, ' '),
-                        Token(Keyword, 'AND'),
-                        Token(Whitespace, ' ')
-                    ] + sqlparse.parse(main_table_filter)[0].tokens
-                    new_where_tokens.extend(filter_tokens)
+            # Add the client filter for the main table
+            try:
+                logger.debug(f"WHERE clause: {where_clause}")
+                logger.debug(f"WHERE clause type: {type(where_clause)}")
+                main_table = self._extract_main_table(where_clause)
+                logger.debug(f"Main table extracted: {main_table}")
+                if main_table:
+                    main_table_filter = self._generate_client_filter(
+                        main_table, client_id)
                     logger.debug(
-                        f"Added main table filter to WHERE clause: {filter_tokens}")
-        except Exception as e:
-            logger.error(f"Error adding main table filter: {e}")
+                        f"Generated main table filter: {main_table_filter}")
+                    if main_table_filter:
+                        filter_tokens = [
+                            Token(Whitespace, ' '),
+                            Token(Keyword, 'AND'),
+                            Token(Whitespace, ' ')
+                        ] + sqlparse.parse(main_table_filter)[0].tokens
+                        new_where_tokens.extend(filter_tokens)
+                        logger.debug(
+                            f"Added main table filter to WHERE clause: {filter_tokens}")
+            except Exception as e:
+                logger.error(f"Error adding main table filter: {e}")
 
-        where_clause.tokens = new_where_tokens
-        logger.debug(f"Final updated WHERE clause: {where_clause}")
-        return where_clause
-
-    def _extract_main_table(self, where_clause):
-        # Extract the main table from the WHERE clause's parent (the full query)
-        for token in where_clause.parent.tokens:
-            if isinstance(token, Identifier):
-                return token.get_real_name()
-        return None
+            where_clause.tokens = new_where_tokens
+            logger.debug(f"Final updated WHERE clause: {where_clause}")
+            return where_clause
 
     def _generate_client_filter(self, table_name, client_id):
         matching_table = self._find_matching_table(table_name)
         if matching_table:
             client_id_column = self.client_tables[matching_table]
             return f'{self._quote_identifier(table_name)}.{self._quote_identifier(client_id_column)} = {client_id}'
+        return None
+
+    def _is_cte_query(self, parsed):
+        logger.debug(f"Checking if it is cte {parsed}")
+        for token in parsed.tokens:
+            logger.debug(f"parsed {token}")
+            if token.ttype is Keyword or (token.ttype is None and token.value.upper() == 'WITH'):
+                logger.debug(f"WITH token parsed {token}")
+                if token.value.upper() == 'WITH':
+                    logger.debug(f"CTE keyword 'WITH' found: {token}")
+                    return True
+        logger.debug("No CTE keyword 'WITH' found")
+        return False
+
+    def _handle_cte_query(self, parsed, client_id):
+        logger.debug(f"Handling CTE query: {parsed}")
+
+        cte_part = None
+        main_query = None
+
+        for i, token in enumerate(parsed.tokens):
+            if isinstance(token, Identifier) and token.get_alias() == 'high_value_orders':
+                cte_part = TokenList(parsed.tokens[:i+1])
+                main_query = TokenList(parsed.tokens[i+1:])
+                break
+
+        logger.debug(f"CTE part: {cte_part}")
+        logger.debug(f"Main query part: {main_query}")
+
+        if cte_part and main_query:
+            filtered_cte = self._apply_filter_recursive(cte_part, client_id)
+            filtered_main = self._apply_filter_recursive(main_query, client_id)
+
+            logger.debug(f"Filtered CTE: {filtered_cte}")
+            logger.debug(f"Filtered main query: {filtered_main}")
+
+            final_result = f"{filtered_cte} {filtered_main}"
+        else:
+            logger.warning("Failed to separate CTE part and main query")
+            final_result = str(parsed)
+
+        logger.debug(f"Final result of CTE handling: {final_result}")
+        return final_result
+
+    def _extract_cte_definition(self, parsed):
+        logger.debug("Extracting CTE definition")
+        cte_tokens = []
+        for token in parsed.tokens:
+            if token.ttype is Keyword and token.value.upper() == 'WITH':
+                cte_tokens.append(token)
+            elif isinstance(token, Identifier):
+                cte_tokens.append(token)
+            elif token.ttype is Keyword and token.value.upper() in ('SELECT', 'INSERT', 'UPDATE', 'DELETE'):
+                break
+        return TokenList(cte_tokens)
+
+    def _extract_main_query(self, parsed):
+        logger.debug("Extracting main query")
+        main_query_tokens = []
+        cte_ended = False
+        for token in parsed.tokens:
+            if cte_ended:
+                main_query_tokens.append(token)
+            elif token.ttype is Keyword and token.value.upper() in ('SELECT', 'INSERT', 'UPDATE', 'DELETE'):
+                cte_ended = True
+                main_query_tokens.append(token)
+        return TokenList(main_query_tokens)
+
+    def _extract_main_table(self, where_clause):
+        logger.debug("Extracting main table")
+        if where_clause.parent is None:
+            logger.debug("WHERE clause parent is None")
+            return None
+        for token in where_clause.parent.tokens:
+            logger.debug(f"Examining token: {token}, type: {type(token)}")
+            if isinstance(token, Identifier):
+                logger.debug(f"Found main table: {token.get_real_name()}")
+                return token.get_real_name()
+        logger.debug("No main table found")
         return None

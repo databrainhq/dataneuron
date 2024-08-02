@@ -10,10 +10,13 @@ class SubqueryHandlerImplementation(SubqueryHandler):
         self.filter_applier = filter_applier
 
     def handle_subquery(self, subquery: TokenList, client_id: int) -> str:
+        print(f"Handling subquery: {subquery}")
         filtered_tokens = []
         for token in subquery.tokens:
+            print(f"Processing token: {token}")
             if isinstance(token, Identifier) and token.has_alias():
                 if isinstance(token.tokens[0], Parenthesis):
+                    print("Found subquery with alias")
                     subquery_content = token.tokens[0].tokens[1:-1]
                     filtered_subquery = self.handle_subquery(
                         TokenList(subquery_content), client_id)
@@ -23,6 +26,7 @@ class SubqueryHandlerImplementation(SubqueryHandler):
                 else:
                     filtered_tokens.append(str(token))
             elif isinstance(token, Parenthesis):
+                print("Found parenthesis")
                 subquery_content = token.tokens[1:-1]
                 filtered_subquery = self.handle_subquery(
                     TokenList(subquery_content), client_id)
@@ -30,7 +34,9 @@ class SubqueryHandlerImplementation(SubqueryHandler):
             else:
                 filtered_tokens.append(str(token))
 
-        return ' '.join(filtered_tokens)
+        result = ' '.join(filtered_tokens)
+        print(f"Subquery handling result: {result}")
+        return result
 
 
 class SetOperationHandlerImplementation(SetOperationHandler):

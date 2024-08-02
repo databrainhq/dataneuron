@@ -1,3 +1,4 @@
+import re
 from data_neuron.core.sql_query_filter import SQLQueryFilter
 import unittest
 
@@ -111,6 +112,166 @@ class TestSQLQueryFilter(unittest.TestCase):
         query = 'SELECT * FROM orders WHERE product_id IN (SELECT id FROM products)'
         expected = 'SELECT * FROM orders WHERE product_id IN (SELECT id FROM products WHERE "products"."company_id" = 1) AND "orders"."user_id" = 1'
         self.assertEqual(self.filter.apply_client_filter(query, 1), expected)
+
+
+class TestSQLQueryFilterCTE(unittest.TestCase):
+    def setUp(self):
+        self.client_tables = {
+            'main.orders': 'user_id',
+            'orders': 'user_id',
+            'main.products': 'company_id',
+            'products': 'company_id',
+            'inventory.items': 'organization_id',
+            'items': 'organization_id',
+            'customers': 'customer_id'
+        }
+        self.filter = SQLQueryFilter(
+            self.client_tables, schemas=['main', 'inventory'])
+
+    def assertSQLEqual(self, first, second, msg=None):
+        def normalize_sql(sql):
+            # Remove all whitespace
+            sql = re.sub(r'\s+', '', sql)
+            # Convert to lowercase
+            return sql.lower()
+
+        normalized_first = normalize_sql(first)
+        normalized_second = normalize_sql(second)
+        self.assertEqual(normalized_first, normalized_second, msg)
+
+    def test_simple_cte(self):
+        query = '''
+        WITH order_summary AS (
+            SELECT user_id, COUNT(*) as order_count
+            FROM orders
+            GROUP BY user_id
+        )
+        SELECT * FROM order_summary
+        '''
+        expected = '''
+        WITH order_summary AS (
+            SELECT user_id, COUNT(*) as order_count
+            FROM orders
+            WHERE "orders"."user_id" = 1
+            GROUP BY user_id
+        )
+        SELECT * FROM order_summary
+        '''
+        self.assertSQLEqual(
+            self.filter.apply_client_filter(query, 1), expected)
+
+    def test_cte_with_join(self):
+        query = '''
+        WITH high_value_orders AS (
+            SELECT * FROM orders WHERE total_amount > 1000
+        )
+        SELECT c.name, hvo.order_id
+        FROM customers c
+        JOIN high_value_orders hvo ON c.id = hvo.user_id
+        '''
+        expected = '''
+        WITH high_value_orders AS (
+            SELECT * FROM orders WHERE total_amount > 1000 AND "orders"."user_id" = 1
+        )
+        SELECT c.name, hvo.order_id
+        FROM customers c
+        JOIN high_value_orders hvo ON c.id = hvo.user_id
+        WHERE "c"."customer_id" = 1
+        '''
+        self.assertSQLEqual(
+            self.filter.apply_client_filter(query, 1), expected)
+
+    # def test_multiple_ctes(self):
+    #     query = '''
+    #     WITH order_summary AS (
+    #         SELECT user_id, COUNT(*) as order_count
+    #         FROM orders
+    #         GROUP BY user_id
+    #     ),
+    #     product_summary AS (
+    #         SELECT company_id, COUNT(*) as product_count
+    #         FROM products
+    #         GROUP BY company_id
+    #     )
+    #     SELECT os.user_id, os.order_count, ps.product_count
+    #     FROM order_summary os
+    #     JOIN product_summary ps ON os.user_id = ps.company_id
+    #     '''
+    #     expected = '''
+    #     WITH order_summary AS (
+    #         SELECT user_id, COUNT(*) as order_count
+    #         FROM orders
+    #         WHERE "orders"."user_id" = 1
+    #         GROUP BY user_id
+    #     ),
+    #     product_summary AS (
+    #         SELECT company_id, COUNT(*) as product_count
+    #         FROM products
+    #         WHERE "products"."company_id" = 1
+    #         GROUP BY company_id
+    #     )
+    #     SELECT os.user_id, os.order_count, ps.product_count
+    #     FROM order_summary os
+    #     JOIN product_summary ps ON os.user_id = ps.company_id
+    #     '''
+    #     self.assertSQLEqual(
+    #         self.filter.apply_client_filter(query, 1), expected)
+
+    # def test_cte_with_subquery(self):
+    #     query = '''
+    #     WITH top_products AS (
+    #         SELECT p.id, p.name, SUM(o.quantity) as total_sold
+    #         FROM products p
+    #         JOIN (SELECT * FROM orders WHERE status = 'completed') o ON p.id = o.product_id
+    #         GROUP BY p.id, p.name
+    #         ORDER BY total_sold DESC
+    #         LIMIT 10
+    #     )
+    #     SELECT * FROM top_products
+    #     '''
+    #     expected = '''
+    #     WITH top_products AS (
+    #         SELECT p.id, p.name, SUM(o.quantity) as total_sold
+    #         FROM products p
+    #         JOIN (SELECT * FROM orders WHERE status = 'completed' AND "orders"."user_id" = 1) o ON p.id = o.product_id
+    #         WHERE "p"."company_id" = 1
+    #         GROUP BY p.id, p.name
+    #         ORDER BY total_sold DESC
+    #         LIMIT 10
+    #     )
+    #     SELECT * FROM top_products
+    #     '''
+    #     self.assertSQLEqual(
+    #         self.filter.apply_client_filter(query, 1), expected)
+
+    # def test_recursive_cte(self):
+    #     query = '''
+    #     WITH RECURSIVE category_tree AS (
+    #         SELECT id, name, parent_id, 0 AS level
+    #         FROM categories
+    #         WHERE parent_id IS NULL
+    #         UNION ALL
+    #         SELECT c.id, c.name, c.parent_id, ct.level + 1
+    #         FROM categories c
+    #         JOIN category_tree ct ON c.parent_id = ct.id
+    #     )
+    #     SELECT * FROM category_tree
+    #     '''
+    #     expected = '''
+    #     WITH RECURSIVE category_tree AS (
+    #         SELECT id, name, parent_id, 0 AS level
+    #         FROM categories
+    #         WHERE parent_id IS NULL AND "categories"."company_id" = 1
+    #         UNION ALL
+    #         SELECT c.id, c.name, c.parent_id, ct.level + 1
+    #         FROM categories c
+    #         JOIN category_tree ct ON c.parent_id = ct.id
+    #         WHERE "c"."company_id" = 1
+    #     )
+    #     SELECT * FROM category_tree
+    #     '''
+    #     self.assertSQLEqual(
+    #         self.filter.apply_client_filter(query, 1), expected)
 
 
 if __name__ == '__main__':
