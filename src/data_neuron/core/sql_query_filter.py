@@ -86,12 +86,26 @@ class SQLQueryFilter:
         print("No set operation found")
         return False
 
-    def _extract_tables_info(self, parsed):
-        logger.debug(f"Extracting tables info from: {parsed}")
-        tables_info = []
-        self._extract_from_clause_tables(parsed, tables_info)
-        self._extract_where_clause_tables(parsed, tables_info)
-        return tables_info
+    def _extract_from_clause_tables(self, parsed, tables_info):
+        logger.debug("Extracting tables from FROM clause")
+        from_seen = False
+        for token in parsed.tokens:
+            if from_seen:
+                if isinstance(token, Identifier):
+                    tables_info.append(self._parse_table_identifier(token))
+                elif isinstance(token, IdentifierList):
+                    for identifier in token.get_identifiers():
+                        if isinstance(identifier, Identifier):
+                            tables_info.append(
+                                self._parse_table_identifier(identifier))
+                elif token.ttype is Keyword and token.value.upper() in ('WHERE', 'GROUP', 'ORDER', 'LIMIT'):
+                    break
+            elif token.ttype is Keyword and token.value.upper() == 'FROM':
+                from_seen = True
+            elif token.ttype is Keyword and token.value.upper() == 'JOIN':
+                tables_info.append(self._parse_table_identifier(
+                    parsed.token_next(token)[1]))
+        logger.debug(f"Tables extracted from FROM clause: {tables_info}")
 
     def _extract_where_clause_tables(self, parsed, tables_info):
         logger.debug("Extracting tables from WHERE clause")
@@ -112,25 +126,52 @@ class SQLQueryFilter:
                             subquery_parsed = sqlparse.parse(subquery)[0]
                             self._extract_from_clause_tables(
                                 subquery_parsed, tables_info)
+        logger.debug(f"Tables extracted from WHERE clause: {tables_info}")
 
-    def _extract_from_clause_tables(self, parsed, tables_info):
-        from_seen = False
-        for token in parsed.tokens:
-            if from_seen:
-                if isinstance(token, Identifier):
-                    tables_info.append(self._parse_table_identifier(token))
-                elif isinstance(token, IdentifierList):
-                    for identifier in token.get_identifiers():
-                        if isinstance(identifier, Identifier):
-                            tables_info.append(
-                                self._parse_table_identifier(identifier))
-                elif token.ttype is Keyword and token.value.upper() in ('WHERE', 'GROUP', 'ORDER', 'LIMIT'):
+    def _extract_cte_tables(self, parsed, tables_info):
+        logger.debug("Extracting tables from CTEs")
+        cte_start = next((i for i, token in enumerate(
+            parsed.tokens) if token.ttype is Keyword and token.value.upper() == 'WITH'), None)
+        if cte_start is not None:
+            for token in parsed.tokens[cte_start:]:
+                if isinstance(token, sqlparse.sql.Identifier) and token.has_alias():
+                    cte_name = token.get_alias()
+                    tables_info.append(
+                        {'name': cte_name, 'schema': None, 'alias': None})
+                    cte_query = token.tokens[-1]
+                    if isinstance(cte_query, sqlparse.sql.Parenthesis):
+                        # Remove outer parentheses and parse the CTE query
+                        cte_parsed = sqlparse.parse(str(cte_query)[1:-1])[0]
+                        # Recursively extract tables from the CTE query
+                        self._extract_tables_info(cte_parsed, tables_info)
+                elif token.ttype is DML and token.value.upper() == 'SELECT':
                     break
-            elif token.ttype is Keyword and token.value.upper() == 'FROM':
-                from_seen = True
-            elif token.ttype is Keyword and token.value.upper() == 'JOIN':
-                tables_info.append(self._parse_table_identifier(
-                    parsed.token_next(token)[1]))
+        logger.debug(f"Tables extracted from CTEs: {tables_info}")
+
+    def _extract_tables_info(self, parsed, tables_info=None):
+        if tables_info is None:
+            tables_info = []
+
+        self._extract_from_clause_tables(parsed, tables_info)
+        self._extract_where_clause_tables(parsed, tables_info)
+        self._extract_cte_tables(parsed, tables_info)
+
+        logger.info(f"Extracted tables info: {tables_info}")
+        return tables_info
+
+    def _extract_nested_subqueries(self, parsed, tables_info):
+        for token in parsed.tokens:
+            if isinstance(token, Identifier) and token.has_alias():
+                if isinstance(token.tokens[0], Parenthesis):
+                    subquery = token.tokens[0].tokens[1:-1]
+                    subquery_str = ' '.join(str(t) for t in subquery)
+                    subquery_parsed = sqlparse.parse(subquery_str)[0]
+                    self._extract_from_clause_tables(
+                        subquery_parsed, tables_info)
+                    self._extract_where_clause_tables(
+                        subquery_parsed, tables_info)
+                    self._extract_nested_subqueries(
+                        subquery_parsed, tables_info)
 
     def _parse_table_identifier(self, identifier):
         schema = None
@@ -147,6 +188,8 @@ class SQLQueryFilter:
                 schema, name = parts
             name = f"{schema}.{name}" if schema else name
 
+        logger.debug(
+            f"Parsed table identifier: name={name}, schema={schema}, alias={alias}")
         return {'name': name, 'schema': schema, 'alias': alias}
 
     def _find_matching_table(self, table_name: str, schema: Optional[str] = None) -> Optional[str]:
@@ -172,21 +215,22 @@ class SQLQueryFilter:
         return f'"{identifier}"'
 
     def _inject_where_clause(self, parsed, where_clause):
-        print(f"Parsed tokens: {[str(token) for token in parsed.tokens]}")
+        logger.debug(f"Injecting WHERE clause: {where_clause}")
+        logger.debug(
+            f"Parsed tokens before injection: {[str(token) for token in parsed.tokens]}")
+
         where_index = next((i for i, token in enumerate(parsed.tokens)
                             if token.ttype is Keyword and token.value.upper() == 'WHERE'), None)
-        print(f"WHERE index: {where_index}")
 
         if where_index is not None:
-            print("Existing WHERE clause found")
-            # WHERE clause exists, find the end of the existing WHERE clause
+            logger.debug("Existing WHERE clause found")
+            # Find the end of the existing WHERE clause
             end_where_index = len(parsed.tokens) - 1
             for i in range(where_index + 1, len(parsed.tokens)):
                 token = parsed.tokens[i]
                 if token.ttype is Keyword and token.value.upper() in ('GROUP', 'ORDER', 'LIMIT'):
                     end_where_index = i - 1
                     break
-            print(f"End of WHERE clause index: {end_where_index}")
 
             # Insert our condition at the end of the existing WHERE clause
             parsed.tokens.insert(end_where_index + 1, Token(Whitespace, ' '))
@@ -195,15 +239,23 @@ class SQLQueryFilter:
             parsed.tokens.insert(end_where_index + 4,
                                  Token(Name, where_clause))
         else:
-            print("No existing WHERE clause found")
-            # No WHERE clause, add one
-            parsed.tokens.append(Token(Whitespace, ' '))
-            parsed.tokens.append(Token(Keyword, 'WHERE'))
-            parsed.tokens.append(Token(Whitespace, ' '))
-            parsed.tokens.append(Token(Name, where_clause))
+            logger.debug("No existing WHERE clause found")
+            # Find the position to insert the WHERE clause
+            insert_position = len(parsed.tokens)
+            for i, token in enumerate(parsed.tokens):
+                if token.ttype is Keyword and token.value.upper() in ('GROUP', 'ORDER', 'LIMIT'):
+                    insert_position = i
+                    break
 
-        print(
-            f"Final parsed tokens: {[str(token) for token in parsed.tokens]}")
+            # Insert the new WHERE clause
+            parsed.tokens.insert(insert_position, Token(Whitespace, ' '))
+            parsed.tokens.insert(insert_position + 1, Token(Keyword, 'WHERE'))
+            parsed.tokens.insert(insert_position + 2, Token(Whitespace, ' '))
+            parsed.tokens.insert(insert_position + 3,
+                                 Token(Name, where_clause))
+
+        logger.debug(
+            f"Parsed tokens after injection: {[str(token) for token in parsed.tokens]}")
         return str(parsed)
 
     def _handle_set_operation(self, parsed, client_id):
@@ -351,11 +403,21 @@ class SQLQueryFilter:
         return False
 
     def _cleanup_whitespace(self, query: str) -> str:
-        # Remove extra spaces
-        query = ' '.join(query.split())
-        # Ensure single space after commas
-        query = re.sub(r'\s*,\s*', ', ', query)
-        return query
+        logger.debug("inside cleanup..")
+        # Split the query into lines
+        lines = query.split('\n')
+        cleaned_lines = []
+        for line in lines:
+            # Remove leading/trailing whitespace from each line
+            line = line.strip()
+            # Replace multiple spaces with a single space, but not in quoted strings
+            line = re.sub(r'\s+(?=(?:[^\']*\'[^\']*\')*[^\']*$)', ' ', line)
+            # Ensure single space after commas, but not in quoted strings
+            line = re.sub(
+                r'\s*,\s*(?=(?:[^\']*\'[^\']*\')*[^\']*$)', ', ', line)
+            cleaned_lines.append(line)
+        # Join the lines back together
+        return '\n'.join(cleaned_lines)
 
     def _handle_subquery(self, parsed, client_id):
         logger.info(f"Handling subquery: {parsed}")
@@ -370,9 +432,8 @@ class SQLQueryFilter:
                     subquery_str = ' '.join(str(t) for t in subquery)
                     filtered_subquery = self._apply_filter_recursive(
                         sqlparse.parse(subquery_str)[0], client_id)
-                    alias = f"AS {token.get_alias()}" if 'AS' in str(
-                        token) else token.get_alias()
-                    result.append(f"({filtered_subquery}) {alias}")
+                    alias = token.get_alias()
+                    result.append(f"({filtered_subquery}) AS {alias}")
                 else:
                     result.append(str(token))
             elif isinstance(token, Parenthesis):
@@ -390,12 +451,20 @@ class SQLQueryFilter:
                     result.append(str(filtered_where))
                 except Exception as e:
                     logger.error(f"Error handling WHERE clause: {e}")
-                    # Keep original if handling fails
                     result.append(str(token))
             else:
-                result.append(str(token))
+                # Preserve whitespace tokens
+                if token.is_whitespace:
+                    result.append(str(token))
+                else:
+                    # Add space before and after non-whitespace tokens, except for punctuation
+                    if result and not result[-1].endswith(' ') and not str(token).startswith((')', ',', '.')):
+                        result.append(' ')
+                    result.append(str(token))
+                    if not str(token).endswith(('(', ',')):
+                        result.append(' ')
 
-        final_result = ' '.join(result)
+        final_result = ''.join(result).strip()
         logger.info(f"Subquery result: {final_result}")
         return final_result
 

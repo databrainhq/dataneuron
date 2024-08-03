@@ -18,10 +18,7 @@ def is_cte_query(parsed):
         return False
     logger.debug(f"Checking if it is cte {parsed}")
     for token in parsed.tokens:
-        logger.debug(
-            f"parsed {token}, type: {token.ttype}, value: {token.value}")
         if token.ttype in (Keyword, Keyword.CTE) and token.value.upper() == 'WITH':
-            logger.info(f"CTE keyword 'WITH' found: {token}")
             return True
         elif isinstance(token, TokenList):
             # Check if the first word in the token is exactly 'WITH'

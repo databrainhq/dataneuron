@@ -74,7 +74,6 @@ def filter_cte(cte_part, filter_function, client_id):
                 filtered_ctes.append(f"{cte_name} AS ({filtered_inner_query})")
 
     for token in cte_part.tokens:
-        logger.debug(f"Processing token: {token}")
         if isinstance(token, sqlparse.sql.IdentifierList):
             for subtoken in token.get_identifiers():
                 process_cte(subtoken)

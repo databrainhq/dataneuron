@@ -160,62 +160,62 @@ class TestSQLQueryFilterCTE(unittest.TestCase):
         self.assertSQLEqual(
             self.filter.apply_client_filter(query, 1), expected)
 
-    # def test_cte_with_join(self):
-    #     query = '''
-    #     WITH high_value_orders AS (
-    #         SELECT * FROM orders WHERE total_amount > 1000
-    #     )
-    #     SELECT c.name, hvo.order_id
-    #     FROM customers c
-    #     JOIN high_value_orders hvo ON c.id = hvo.user_id
-    #     '''
-    #     expected = '''
-    #     WITH high_value_orders AS (
-    #         SELECT * FROM orders WHERE total_amount > 1000 AND "orders"."user_id" = 1
-    #     )
-    #     SELECT c.name, hvo.order_id
-    #     FROM customers c
-    #     JOIN high_value_orders hvo ON c.id = hvo.user_id
-    #     WHERE "c"."customer_id" = 1
-    #     '''
-    #     self.assertSQLEqual(
-    #         self.filter.apply_client_filter(query, 1), expected)
+    def test_cte_with_join(self):
+        query = '''
+        WITH high_value_orders AS (
+            SELECT * FROM orders WHERE total_amount > 1000
+        )
+        SELECT c.name, hvo.order_id
+        FROM customers c
+        JOIN high_value_orders hvo ON c.id = hvo.user_id
+        '''
+        expected = '''
+        WITH high_value_orders AS (
+            SELECT * FROM orders WHERE total_amount > 1000 AND "orders"."user_id" = 1
+        )
+        SELECT c.name, hvo.order_id
+        FROM customers c
+        JOIN high_value_orders hvo ON c.id = hvo.user_id
+        WHERE "c"."customer_id" = 1
+        '''
+        self.assertSQLEqual(
+            self.filter.apply_client_filter(query, 1), expected)
 
-    # def test_multiple_ctes(self):
-    #     query = '''
-    #     WITH order_summary AS (
-    #         SELECT user_id, COUNT(*) as order_count
-    #         FROM orders
-    #         GROUP BY user_id
-    #     ),
-    #     product_summary AS (
-    #         SELECT company_id, COUNT(*) as product_count
-    #         FROM products
-    #         GROUP BY company_id
-    #     )
-    #     SELECT os.user_id, os.order_count, ps.product_count
-    #     FROM order_summary os
-    #     JOIN product_summary ps ON os.user_id = ps.company_id
-    #     '''
-    #     expected = '''
-    #     WITH order_summary AS (
-    #         SELECT user_id, COUNT(*) as order_count
-    #         FROM orders
-    #         WHERE "orders"."user_id" = 1
-    #         GROUP BY user_id
-    #     ),
-    #     product_summary AS (
-    #         SELECT company_id, COUNT(*) as product_count
-    #         FROM products
-    #         WHERE "products"."company_id" = 1
-    #         GROUP BY company_id
-    #     )
-    #     SELECT os.user_id, os.order_count, ps.product_count
-    #     FROM order_summary os
-    #     JOIN product_summary ps ON os.user_id = ps.company_id
-    #     '''
-    #     self.assertSQLEqual(
-    #         self.filter.apply_client_filter(query, 1), expected)
+    def test_multiple_ctes(self):
+        query = '''
+        WITH order_summary AS (
+            SELECT user_id, COUNT(*) as order_count
+            FROM orders
+            GROUP BY user_id
+        ),
+        product_summary AS (
+            SELECT company_id, COUNT(*) as product_count
+            FROM products
+            GROUP BY company_id
+        )
+        SELECT os.user_id, os.order_count, ps.product_count
+        FROM order_summary os
+        JOIN product_summary ps ON os.user_id = ps.company_id
+        '''
+        expected = '''
+        WITH order_summary AS (
+            SELECT user_id, COUNT(*) as order_count
+            FROM orders
+            WHERE "orders"."user_id" = 1
+            GROUP BY user_id
+        ),
+        product_summary AS (
+            SELECT company_id, COUNT(*) as product_count
+            FROM products
+            WHERE "products"."company_id" = 1
+            GROUP BY company_id
+        )
+        SELECT os.user_id, os.order_count, ps.product_count
+        FROM order_summary os
+        JOIN product_summary ps ON os.user_id = ps.company_id
+        '''
+        self.assertSQLEqual(
+            self.filter.apply_client_filter(query, 1), expected)
 
     # def test_cte_with_subquery(self):
     #     query = '''
