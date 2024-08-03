@@ -197,6 +197,9 @@ class DataNeuron:
             raise ValueError(
                 "DataNeuron is not initialized. Call initialize() first.")
 
+        if self.current_client_id:
+            sql_query = self._apply_client_filter(sql_query)
+
         try:
             result = self.db.execute_query(sql_query)
             if self.log:
@@ -213,6 +216,8 @@ class DataNeuron:
             raise ValueError(
                 "DataNeuron is not initialized. Call initialize() first.")
 
+        if self.current_client_id:
+            sql_query = self._apply_client_filter(sql_query)
         try:
             result = self.db.execute_query_with_column_names(sql_query)
             return result
@@ -220,6 +225,12 @@ class DataNeuron:
             if self.log:
                 print_error(f"Error executing query: {str(e)}")
             return f"Error executing query: {str(e)}"
+
+    def client_filtered_query(self, sql_query: str) -> str:
+        if self.current_client_id:
+            return self._apply_client_filter(sql_query)
+        else:
+            raise ValueError("You need to set client_id")
 
     def get_table_list(self) -> List[str]:
         """Return a list of tables in the database."""

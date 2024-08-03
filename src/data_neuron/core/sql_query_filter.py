@@ -5,7 +5,7 @@ from sqlparse.tokens import Keyword, DML, Name, Whitespace, Punctuation
 from typing import List, Dict, Optional
 import logging
 from .nlp_helpers.cte_handler import handle_cte_query
-from .is_cte import is_cte_query
+from .nlp_helpers.is_cte import is_cte_query
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -516,62 +516,6 @@ class SQLQueryFilter:
             return f'{self._quote_identifier(table_name)}.{self._quote_identifier(client_id_column)} = {client_id}'
         return None
 
-    def _handle_cte_query(self, parsed, client_id):
-        logger.debug(f"Handling CTE query: {parsed}")
-
-        cte_part = self._extract_cte_definition(parsed)
-        main_query = self._extract_main_query(parsed)
-
-        logger.debug(f"CTE part: {cte_part}")
-        logger.debug(f"Main query part: {main_query}")
-
-        if cte_part and main_query:
-            try:
-                # Filter the CTE part
-                filtered_cte = self._filter_cte(cte_part, client_id)
-
-                # Filter the main query
-                filtered_main = self._apply_filter_recursive(
-                    main_query, client_id)
-
-                logger.debug(f"Filtered CTE: {filtered_cte}")
-                logger.debug(f"Filtered main query: {filtered_main}")
-
-                final_result = f"{filtered_cte} {filtered_main}"
-            except Exception as e:
-                logger.error(f"Error during CTE filtering: {e}")
-                final_result = str(parsed)
-        else:
-            logger.warning("Failed to separate CTE part and main query")
-            final_result = str(parsed)
-
-        logger.debug(f"Final result of CTE handling: {final_result}")
-        return final_result
-
-    def _extract_cte_definition(self, parsed):
-        logger.debug("Extracting CTE definition")
-        cte_tokens = []
-        cte_started = False
-        parenthesis_count = 0
-
-        for token in parsed.tokens:
-            if cte_started:
-                cte_tokens.append(token)
-                if isinstance(token, TokenList):
-                    parenthesis_count += token.value.count(
-                        '(') - token.value.count(')')
-                elif token.value == '(':
-                    parenthesis_count += 1
-                elif token.value == ')':
-                    parenthesis_count -= 1
-                if parenthesis_count == 0 and token.value == ')':
-                    break
-            elif token.ttype is Keyword and token.value.upper() == 'WITH':
-                cte_started = True
-                cte_tokens.append(token)
-
-        return TokenList(cte_tokens)
-
     def _extract_main_query(self, parsed):
         logger.debug("Extracting main query")
         main_query_tokens = []
@@ -598,38 +542,3 @@ class SQLQueryFilter:
                 return token.get_real_name()
         logger.debug("No main table found")
         return None
-
-    def _filter_cte(self, cte_part, client_id):
-        logger.debug(f"Filtering CTE part: {cte_part}")
-
-        # Find the AS keyword
-        as_index = next((i for i, token in enumerate(
-            cte_part.tokens) if token.ttype is Keyword and token.value.upper() == 'AS'), None)
-
-        if as_index is None:
-            logger.warning("Could not find 'AS' keyword in CTE definition")
-            return str(cte_part)
-
-        # Extract the CTE name and the inner query
-        cte_name = cte_part.tokens[as_index - 1]
-        inner_query = cte_part.tokens[as_index + 1]
-
-        if not isinstance(inner_query, TokenList):
-            logger.warning("Inner query is not a TokenList")
-            return str(cte_part)
-
-        # Filter the inner query
-        filtered_inner_query = self._apply_filter_recursive(
-            inner_query, client_id)
-
-        # Reconstruct the CTE with the filtered inner query
-        filtered_cte = TokenList(
-            # Everything up to and including 'AS'
-            cte_part.tokens[:as_index + 1] +
-            [TokenList(f'({filtered_inner_query})')] +  # Filtered inner query
-            # Everything after the original inner query
-            cte_part.tokens[as_index + 2:]
-        )
-
-        logger.debug(f"Filtered CTE: {filtered_cte}")
-        return str(filtered_cte)

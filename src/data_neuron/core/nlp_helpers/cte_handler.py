@@ -58,18 +58,33 @@ def filter_cte(cte_part, filter_function, client_id):
     logger.debug(f"Filtering CTE part: {cte_part}")
     filtered_ctes = []
 
-    for token in cte_part.tokens:
+    def process_cte(token):
         if isinstance(token, sqlparse.sql.Identifier):
             cte_name = token.get_name()
+            logger.debug(f"Found CTE: {cte_name}")
             inner_query = token.tokens[-1]
             if isinstance(inner_query, sqlparse.sql.Parenthesis):
-                # Remove the outer parentheses
+                # Remove outer parentheses
                 inner_query_str = str(inner_query)[1:-1]
+                logger.debug(
+                    f"Inner query before filtering: {inner_query_str}")
                 filtered_inner_query = filter_function(
                     sqlparse.parse(inner_query_str)[0], client_id)
+                logger.debug(f"Filtered inner query: {filtered_inner_query}")
                 filtered_ctes.append(f"{cte_name} AS ({filtered_inner_query})")
 
-    filtered_cte_str = "WITH " + ",\n".join(filtered_ctes)
+    for token in cte_part.tokens:
+        logger.debug(f"Processing token: {token}")
+        if isinstance(token, sqlparse.sql.IdentifierList):
+            for subtoken in token.get_identifiers():
+                process_cte(subtoken)
+        else:
+            process_cte(token)
+
+    if filtered_ctes:
+        filtered_cte_str = "WITH " + ",\n".join(filtered_ctes)
+    else:
+        filtered_cte_str = ""
     logger.debug(f"Filtered CTE: {filtered_cte_str}")
     return filtered_cte_str
 
@@ -87,7 +102,11 @@ def handle_cte_query(parsed, filter_function, client_id):
             filtered_main = filter_function(main_query, client_id)
             logger.debug(f"Filtered CTE: {filtered_cte}")
             logger.debug(f"Filtered main query: {filtered_main}")
-            final_result = f"{filtered_cte}\n{filtered_main}"
+
+            if filtered_cte:
+                final_result = f"{filtered_cte}\n{filtered_main}"
+            else:
+                final_result = filtered_main
         except Exception as e:
             logger.error(f"Error during CTE filtering: {e}")
             final_result = str(parsed)

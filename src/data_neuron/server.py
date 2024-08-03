@@ -141,6 +141,24 @@ def create_app(config=None):
             print(traceback.format_exc())
             return jsonify({"error": str(e)}), 500
 
+    @app.route('/execute_query', methods=['POST'])
+    def execute_query():
+        data = request.json
+        sql_query = data.get('sql_query')
+        context_name = data.get('context_name')
+        client_id = data.get('client_id')
+
+        if not sql_query:
+            return jsonify({"error": "sql_query is required"}), 400
+
+        try:
+            dn = get_data_neuron(context_name)
+            if client_id:
+                dn.set_client_context(client_id)
+            result = dn.execute_query_with_column_names(sql_query)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
     return app
 
 
