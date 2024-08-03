@@ -330,6 +330,13 @@ result = dn.query("Your query here")
 Every query that is generated will be filtered with client_id column based on the client column tables
 that you had given earlier using `dnn --mc`, you can manually edit that file as well.
 
+**Important Note on Limitations (WIP)**:
+
+- Currently this client specific filter works on tables with client_id. For eg, if there is a
+  scenario where you ask "My order items" but order_items table doesn't have client_id but the `orders` table,
+  this won't add "JOIN" automatically yet.
+- Similarly this won't work with Recursive CTE.
+
 NOTE: All yaml files can be edited as long as the base structure is preserved, you can add any new columns
 to tables yaml or definitions yaml, the structure involving name alone shouldn't be removed.
 
