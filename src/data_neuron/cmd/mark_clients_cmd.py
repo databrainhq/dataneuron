@@ -6,10 +6,8 @@ import click
 
 def mark_client_tables():
     print_info("Setting up client information...")
-
     context_name = click.prompt("Enter the context name", type=str)
     context_dir = os.path.join('context', context_name)
-
     if not os.path.exists(context_dir):
         print_warning(
             f"Context '{context_name}' does not exist. Please create it first using 'dnn --init'.")
@@ -22,31 +20,38 @@ def mark_client_tables():
         with open(client_info_path, 'r') as f:
             client_info = yaml.safe_load(f)
     else:
-        client_info = {'schemas': [], 'tables': {}}
+        client_info = {'schemas': set(), 'tables': {}}
 
-    # Prompt for schemas
-    schemas = styled_prompt(
-        "Enter comma-separated list of schemas (leave empty to keep existing)")
-    if schemas:
-        client_info['schemas'] = [schema.strip()
-                                  for schema in schemas.split(',')]
+    # Convert schemas to a set if it's a list
+    if isinstance(client_info['schemas'], list):
+        client_info['schemas'] = set(client_info['schemas'])
 
     # Prompt for client tables
     while True:
         table_name = styled_prompt(
-            "Enter a table name for client filtering (or 'done' to finish)")
+            "Enter a table name for client filtering of the format: schema.tablename (e.g., main.orders) or 'done' to finish")
         if table_name.lower() == 'done':
             break
+
+        # Split the table name into schema and table
+        parts = table_name.split('.')
+        if len(parts) != 2:
+            print_warning(
+                "Invalid table name format. Please use 'schema.tablename'.")
+            continue
+
+        schema, table = parts
+        client_info['schemas'].add(schema)
+
         client_id_column = styled_prompt(
             f"Enter the client ID column name for {table_name}")
         client_info['tables'][table_name] = client_id_column
+
+    # Convert schemas set to list for YAML serialization
+    client_info['schemas'] = list(client_info['schemas'])
 
     # Save client_info to yaml file
     with open(client_info_path, 'w') as f:
         yaml.dump(client_info, f)
 
     print_success(f"Client information updated in {client_info_path}")
-    print_info("Schemas:", ', '.join(client_info['schemas']))
-    print_info("Client tables:")
-    for table, column in client_info['tables'].items():
-        print_info(f"  {table}: {column}")

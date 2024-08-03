@@ -24,6 +24,7 @@ class DataNeuron:
         self.chat_history = []
         self.log = log
         self.filter = None
+        self.current_client_id = None
 
     def initialize(self):
         """Initialize the database connection and load the context."""
@@ -148,7 +149,8 @@ class DataNeuron:
         if not refined_query:
             response = "I'm sorry, but I couldn't understand your query in the context of our conversation and the database structure."
             if self.log:
-                print_warning("Unable to refine the query.")
+                print_warning(
+                    "Unable to understand the query. Can you try asking questions related to your db")
             return None, response
         else:
             prompt = sql_query_prompt(
@@ -309,7 +311,7 @@ class DataNeuron:
             table = tabulate(result, headers=column_names, tablefmt="grid")
             print(table)
 
-    def set_client_context(self, client_id: int):
+    def set_client_context(self, client_id: Any):
         """Set the current client context for filtering queries."""
         self.current_client_id = client_id
         if self.log:
