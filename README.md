@@ -311,7 +311,8 @@ table_info = dn.get_table_info("users")
 
 ### 6. Client/Tenant scoped queries/chat
 
-Firt mark the client column in tables
+First mark the client column in tables (important step). This will create a client_info.yaml that will be used
+for lookup later for filtering the queries.
 
 ```
 dnn --mc
@@ -466,7 +467,8 @@ The Data Neuron API provides the following endpoints:
      ```json
      {
        "messages": [{ "role": "user", "content": "Your message here" }],
-       "context_name": "optional_context_name"
+       "context_name": "optional_context_name",
+       "client_id": "optional_client_id"
      }
      ```
 

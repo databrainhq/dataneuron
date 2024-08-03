@@ -26,6 +26,7 @@ def create_app(config=None):
         data = request.json
         messages = data.get('messages', [])
         context_name = data.get('context_name')
+        client_id = data.get('client_id')
 
         if not messages or not isinstance(messages, list):
             return jsonify({"error": "messages must be a non-empty list"}), 400
@@ -37,16 +38,21 @@ def create_app(config=None):
             if len(messages) > 1:
                 dn.set_chat_history(messages[:-1])
 
+            # Set client context if client_id is provided
+            if client_id:
+                # New line to set client context
+                dn.set_client_context(client_id)
+
             # Get the last user message
             last_user_message = next((msg['content'] for msg in reversed(
                 messages) if msg['role'] == 'user'), None)
-
             if last_user_message is None:
                 return jsonify({"error": "No user message found"}), 400
 
             sql, response = dn.chat(last_user_message)
             serializable_response = ensure_serializable(response)
             return jsonify({"response": serializable_response, "sql": sql})
+
         except Exception as e:
             app.logger.error(
                 f"Error in chat endpoint: {str(e)}", exc_info=True)
