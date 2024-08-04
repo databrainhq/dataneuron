@@ -432,10 +432,10 @@ from dataneuron import DataNeuron, DashboardManager
 
 app = Flask(__name__)
 
-def get_data_neuron(context=None):
-    data_neuron = DataNeuron(db_config='database.yaml', context=context)
-    data_neuron.initialize()
-    return data_neuron
+def get_dataneuron(context=None):
+    dataneuron = DataNeuron(db_config='database.yaml', context=context)
+    dataneuron.initialize()
+    return dataneuron
 
 def get_dashboard_manager():
     return DashboardManager()

@@ -1,11 +1,11 @@
 import unittest
 from unittest.mock import patch, mock_open
 import yaml
-from data_neuron.db_operations.factory import DatabaseFactory
-from data_neuron.db_operations.sqlite import SQLiteOperations
-from data_neuron.db_operations.postgres import PostgreSQLOperations
-from data_neuron.db_operations.mysql import MySQLOperations
-from data_neuron.db_operations.mssql import MSSQLOperations
+from dataneuron.db_operations.factory import DatabaseFactory
+from dataneuron.db_operations.sqlite import SQLiteOperations
+from dataneuron.db_operations.postgres import PostgreSQLOperations
+from dataneuron.db_operations.mysql import MySQLOperations
+from dataneuron.db_operations.mssql import MSSQLOperations
 
 
 class TestDatabaseFactory(unittest.TestCase):

@@ -1,10 +1,10 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from data_neuron.db_operations.mssql import MSSQLOperations
+from dataneuron.db_operations.mssql import MSSQLOperations
 
 
 class TestMSSQLOperations(unittest.TestCase):
-    @patch('data_neuron.db_operations.mssql.pyodbc')
+    @patch('dataneuron.db_operations.mssql.pyodbc')
     def setUp(self, mock_pyodbc):
         self.mock_conn = MagicMock()
         self.mock_cursor = MagicMock()

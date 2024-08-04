@@ -1,6 +1,6 @@
 import unittest
 import os
-from data_neuron.db_operations.sqlite import SQLiteOperations
+from dataneuron.db_operations.sqlite import SQLiteOperations
 
 
 class TestSQLiteOperations(unittest.TestCase):

@@ -1,4 +1,4 @@
-from data_neuron.utils.stream_print import stream_and_print_simplified_xml
+from dataneuron.utils.stream_print import stream_and_print_simplified_xml
 
 
 def test_simplified_xml(capsys):

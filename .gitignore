@@ -9,7 +9,7 @@ testapp
 .coverage
 coverage.xml
 __pycache__
-src/data_neuron/__pycache__
+src/dataneuron/__pycache__
 **__pycache__**
 ai-analyst
 demo

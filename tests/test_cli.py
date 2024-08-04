@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch, MagicMock
 from click.testing import CliRunner
-from src.data_neuron.cli import main
+from src.dataneuron.cli import main
 
 
 class TestCLI(unittest.TestCase):

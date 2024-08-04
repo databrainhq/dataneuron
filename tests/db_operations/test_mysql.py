@@ -1,10 +1,10 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from data_neuron.db_operations.mysql import MySQLOperations
+from dataneuron.db_operations.mysql import MySQLOperations
 
 
 class TestMySQLOperations(unittest.TestCase):
-    @patch('data_neuron.db_operations.mysql.connector')
+    @patch('dataneuron.db_operations.mysql.connector')
     def setUp(self, mock_mysql):
         self.mock_conn = MagicMock()
         self.mock_cursor = MagicMock()

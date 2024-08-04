@@ -1,5 +1,5 @@
 import re
-from data_neuron.core.sql_query_filter import SQLQueryFilter
+from dataneuron.core.sql_query_filter import SQLQueryFilter
 import unittest
 
 

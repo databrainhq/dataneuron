@@ -1,6 +1,6 @@
 import unittest
 import sqlparse
-from data_neuron.core.nlp_helpers.cte_handler import extract_cte_definition, extract_main_query, filter_cte, handle_cte_query
+from dataneuron.core.nlp_helpers.cte_handler import extract_cte_definition, extract_main_query, filter_cte, handle_cte_query
 
 
 class TestCTEHandler(unittest.TestCase):

@@ -1,4 +1,4 @@
-# src/data_neuron/cmd/report_cmd.py
+# src/dataneuron/cmd/report_cmd.py
 
 import click
 import os
@@ -9,10 +9,10 @@ from ..core.dashboard_manager import DashboardManager
 from ..db_operations.factory import DatabaseFactory
 from ..api.main import call_neuron_vision_api, call_neuron_api
 from ..utils.print import print_header, print_info, print_success, print_warning, styled_prompt
-import pdfkit
 
 
 def generate_report():
+    import pdfkit
     print_header("Generating Dashboard Report")
 
     dashboard_manager = DashboardManager()

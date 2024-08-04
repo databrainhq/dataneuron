@@ -1,10 +1,10 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from data_neuron.db_operations.postgres import PostgreSQLOperations
+from dataneuron.db_operations.postgres import PostgreSQLOperations
 
 
 class TestPostgreSQLOperations(unittest.TestCase):
-    @patch('data_neuron.db_operations.postgres.psycopg2')
+    @patch('dataneuron.db_operations.postgres.psycopg2')
     def setUp(self, mock_psycopg2):
         self.mock_conn = MagicMock()
         self.mock_cursor = MagicMock()

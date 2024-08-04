@@ -1,4 +1,4 @@
-# src/data_neuron/cmd/chat_cmd.py
+# src/dataneuron/cmd/chat_cmd.py
 
 import click
 from ..core.data_neuron import DataNeuron

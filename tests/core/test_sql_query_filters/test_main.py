@@ -1,11 +1,11 @@
 import unittest
 from sqlparse.sql import Token, Where, Parenthesis
 from sqlparse.tokens import Keyword
-from data_neuron.core.sql_query_filters.where_clause_handler import WhereClauseModifierImplementation
-from data_neuron.core.sql_query_filters.client_filter import ClientFilterApplierImplementation
-from data_neuron.core.sql_query_filters.sub_query_handler import SubqueryHandlerImplementation, SetOperationHandlerImplementation
-from data_neuron.core.sql_query_filters.main import SQLQueryFilter
-from data_neuron.core.sql_query_filters.sql_components import SQLParserImplementation, TableExtractorImplementation
+from dataneuron.core.sql_query_filters.where_clause_handler import WhereClauseModifierImplementation
+from dataneuron.core.sql_query_filters.client_filter import ClientFilterApplierImplementation
+from dataneuron.core.sql_query_filters.sub_query_handler import SubqueryHandlerImplementation, SetOperationHandlerImplementation
+from dataneuron.core.sql_query_filters.main import SQLQueryFilter
+from dataneuron.core.sql_query_filters.sql_components import SQLParserImplementation, TableExtractorImplementation
 
 
 # Assuming the implementations are in a file called sql_components.py

@@ -1,7 +1,7 @@
 import sqlite3
 import unittest
 from unittest.mock import patch, MagicMock
-from data_neuron.query_executor import execute_query
+from dataneuron.query_executor import execute_query
 
 
 class TestQueryExecutor(unittest.TestCase):

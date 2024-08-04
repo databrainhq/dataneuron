@@ -1,4 +1,4 @@
-# src/data_neuron/core/context_initializer.py
+# src/dataneuron/core/context_initializer.py
 
 import os
 import click
@@ -12,9 +12,9 @@ from ..db_operations.database_helpers import DatabaseHelper
 
 class ContextInitializer:
     def __init__(self, db_config='database.yaml'):
-        self.data_neuron = DataNeuron(db_config=db_config, context=None)
-        self.data_neuron.initialize()
-        self.db = self.data_neuron.db
+        self.dataneuron = DataNeuron(db_config=db_config, context=None)
+        self.dataneuron.initialize()
+        self.db = self.dataneuron.db
         self.dashboard_manager = DashboardManager()
         self.db_helper = DatabaseHelper(self.db.db_type, self.db)
 
@@ -76,7 +76,7 @@ class ContextInitializer:
                 f"Initialization complete for context: {context_name}")
 
             # Initialize ContextLoader with the new context
-            self.data_neuron.set_context(context_name)
+            self.dataneuron.set_context(context_name)
 
         except Exception as e:
             print_warning(f"An error occurred: {str(e)}")

@@ -1,6 +1,6 @@
 import unittest
 from sqlparse import parse
-from data_neuron.core.nlp_helpers.is_cte import is_cte_query as is_cte
+from dataneuron.core.nlp_helpers.is_cte import is_cte_query as is_cte
 
 
 class TestIsCTE(unittest.TestCase):

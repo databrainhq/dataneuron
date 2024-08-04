@@ -12,10 +12,10 @@ def create_app(config=None):
     if config:
         app.config.from_object(config)
 
-    def get_data_neuron(context=None):
-        data_neuron = DataNeuron(db_config='database.yaml', context=context)
-        data_neuron.initialize()
-        return data_neuron
+    def get_dataneuron(context=None):
+        dataneuron = DataNeuron(db_config='database.yaml', context=context)
+        dataneuron.initialize()
+        return dataneuron
 
     def get_dashboard_manager():
         dashboard_manager = DashboardManager()
@@ -32,7 +32,7 @@ def create_app(config=None):
             return jsonify({"error": "messages must be a non-empty list"}), 400
 
         try:
-            dn = get_data_neuron(context_name)
+            dn = get_dataneuron(context_name)
 
             # Set chat history if there are previous messages
             if len(messages) > 1:
@@ -124,7 +124,7 @@ def create_app(config=None):
                 placeholder = f":{key}"
                 sql_query = sql_query.replace(placeholder, str(value))
 
-            dn = get_data_neuron()
+            dn = get_dataneuron()
             result = dn.db.execute_query_with_column_names(sql_query)
 
             if isinstance(result, tuple) and len(result) == 2:
@@ -152,7 +152,7 @@ def create_app(config=None):
             return jsonify({"error": "sql_query is required"}), 400
 
         try:
-            dn = get_data_neuron(context_name)
+            dn = get_dataneuron(context_name)
             if client_id:
                 dn.set_client_context(client_id)
             result = dn.execute_query_with_column_names(sql_query)
