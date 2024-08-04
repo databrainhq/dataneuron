@@ -1,7 +1,9 @@
 # Data Neuron
 
-Data Neuron is a framework for data people (datascientist, data engineers..) to
-chat with the data (text2sql) but with an easy to maintain and continually improving semantic layer in the form yml files.
+Data Neuron is a simple framework for you to
+chat with your data in natural language through python sdk, REST API or CLI directly and with an easy to maintain and continually improving semantic layer in the form yml files.
+
+⭐ If you find DataNeuron useful, please consider giving us a star on GitHub! Your support helps us continue to innovate and deliver exciting features
 
 ### Quick Start
 
