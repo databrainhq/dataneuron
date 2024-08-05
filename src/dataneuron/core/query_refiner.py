@@ -2,6 +2,7 @@ from typing import Dict, Tuple, List
 import json
 from ..api.main import call_neuron_api
 from ..prompts.query_refinement_prompt import query_refinement_prompt
+from ..db_operations.database_helpers import DatabaseHelper
 
 
 class QueryRefiner:
@@ -42,6 +43,7 @@ class QueryRefiner:
 
         if not can_be_answered:
             exp = parsed_response.get('explanation')
+            print("Explantion", exp)
             return None, exp, [], []
 
         if entities:
@@ -53,6 +55,31 @@ class QueryRefiner:
         else:
             is_valid, refined_entities, invalid_entities = True, [], []
         return refined_query, changes, refined_entities, invalid_entities
+
+    def validate_and_refine_entities(self, entities: List[Dict]) -> Tuple[bool, List[Dict], List[Dict]]:
+        refined_entities = []
+        invalid_entities = []
+        db_helper = DatabaseHelper(self.db.db_type, self.db)
+        for entity in entities:
+            query = db_helper.top_few_records(
+                entity['column'],
+                entity['table'],
+                entity['potential_value']
+            )
+            results = self.db.execute_query(query)
+            if results:
+                matches = [row[0] for row in results]
+                refined_entities.append({
+                    'table': entity['table'],
+                    'column': entity['column'],
+                    'original_value': entity['potential_value'],
+                    'matches': matches
+                })
+            else:
+                invalid_entities.append(entity)
+
+        is_valid = len(invalid_entities) == 0
+        return is_valid, refined_entities, invalid_entities
 
     def further_refine_query(self, query: str, refined_entities: List[Dict]) -> str:
         for entity in refined_entities:

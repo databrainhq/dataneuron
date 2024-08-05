@@ -9,7 +9,7 @@ from .cmd.context_init_cmd import ContextInitializer
 
 import os
 
-VERSION = "0.3.1"  # Update this as you release new versions
+VERSION = "0.3.2"  # Update this as you release new versions
 
 
 @click.command()
