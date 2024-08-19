@@ -3,8 +3,8 @@ import sqlparse
 from sqlparse.sql import IdentifierList, Identifier, Token, TokenList, Parenthesis, Where, Comparison
 from sqlparse.tokens import Keyword, DML, Name, Whitespace, Punctuation
 from typing import List, Dict, Optional
-from .nlp_helpers.cte_handler import handle_cte_query, extract_cte_definition, extract_main_query
-from .nlp_helpers.is_cte import is_cte_query
+from nlp_helpers.cte_handler import handle_cte_query, extract_cte_definition, extract_main_query
+from nlp_helpers.is_cte import is_cte_query
 
 
 class SQLQueryFilter:
@@ -17,16 +17,15 @@ class SQLQueryFilter:
         self.extract_cte_definition = extract_cte_definition
         self.extract_main_query = extract_main_query
 
-    def apply_client_filter(self, sql_query: str, client_id: int) -> str:
-        self.filtered_tables = set()
+    def apply_client_filter(self, sql_query: str, client_id: int):
         parsed = sqlparse.parse(sql_query)[0]
 
-        is_cte = self._is_cte_query(parsed)
         is_recursive_cte = 'RECURSIVE' in str(parsed).upper()
+        is_cte = self._is_cte_query(parsed)
 
-        if is_recursive_cte:
+        if is_recursive_cte and is_cte: #Added case for handling recursive CTE
             result = self._handle_recursive_cte(parsed, client_id)
-        elif is_cte: # ADDED AN ELIF STATEMENT FOR HANDLING RECURSIVE CTE
+        elif is_cte and not is_recursive_cte:
             result = handle_cte_query(parsed, self._apply_filter_recursive, client_id)
         else:
             result = self._apply_filter_recursive(parsed, client_id)
@@ -38,14 +37,15 @@ class SQLQueryFilter:
             return handle_cte_query(parsed, self._apply_filter_recursive, client_id)
 
         if isinstance(parsed, Token) and parsed.ttype is DML:
-            return self._apply_filter_to_single_query(str(parsed), client_id)
+            filtered_query = self._apply_filter_to_single_query(str(parsed), client_id)
+            return self._add_where_clause_to_main_query(filtered_query, client_id)
         elif self._contains_set_operation(parsed):
             return self._handle_set_operation(parsed, client_id)
         elif self._contains_subquery(parsed):
             return self._handle_subquery(parsed, client_id)
         else:
-            filtered_query = self._apply_filter_to_single_query(
-                str(parsed), client_id)
+            filtered_query = self._apply_filter_to_single_query(str(parsed), client_id)
+            filtered_query = self._add_where_clause_to_main_query(filtered_query, client_id)
             return self._handle_where_subqueries(sqlparse.parse(filtered_query)[0], client_id)
 
     def _contains_set_operation(self, parsed):
@@ -385,6 +385,7 @@ class SQLQueryFilter:
                 subquery_str = ' '.join(str(t) for t in subquery)
                 filtered_subquery = self._apply_filter_recursive(
                     sqlparse.parse(subquery_str)[0], client_id)
+                filtered_subquery = self._add_where_clause_to_main_query(filtered_subquery, client_id)
                 result.append(f"({filtered_subquery})")
             elif isinstance(token, Where):
                 try:
@@ -408,9 +409,35 @@ class SQLQueryFilter:
         final_result = ''.join(result).strip()
         return final_result
 
+    def _add_where_clause_to_main_query(self, main_query, client_id):
+        parsed = sqlparse.parse(str(main_query))[0]
+        tables_info = self._extract_tables_info(parsed)
+        
+        filters = []
+        for table_info in tables_info:
+            table_name = table_info['name']
+            table_alias = table_info['alias']
+            schema = table_info['schema']
+            
+            matching_table = self._find_matching_table(table_name, schema)
+            
+            if matching_table and matching_table not in self.filtered_tables:
+                client_id_column = self.client_tables[matching_table]
+                table_reference = table_alias or table_name
+                filters.append(
+                    f'{self._quote_identifier(table_reference)}.{self._quote_identifier(client_id_column)} = {client_id}'
+                )
+                self.filtered_tables.add(matching_table)
+        
+        if filters:
+            where_clause = " AND ".join(filters)
+            return self._inject_where_clause(parsed, where_clause)
+        else:
+            return str(main_query)
+
     def _handle_where_subqueries(self, where_clause, client_id):
         if self._is_cte_query(where_clause):
-            cte_part = self._extract_cte_definition(where_clause)
+            cte_part = self.extract_cte_definition(where_clause)
             main_query = self._extract_main_query(where_clause)
 
             filtered_cte = self._apply_filter_recursive(cte_part, client_id)
@@ -515,6 +542,7 @@ class SQLQueryFilter:
         return None
 
     def _handle_recursive_cte(self, parsed, client_id):
+        print("HI-----------------------------------------------")
         cte_part = self.extract_cte_definition(parsed)
         main_query = self.extract_main_query(parsed)
 
@@ -523,10 +551,15 @@ class SQLQueryFilter:
 
         # Filter the main query
         filtered_main_query = self._apply_filter_recursive(main_query, client_id)
+        
+        # Add WHERE clause to main query if it doesn't have one
+        filtered_main_query = self._add_where_clause_to_main_query(filtered_main_query, client_id)
 
         # Ensure proper spacing
-        result = f"{filtered_cte} {filtered_main_query}"
-        result = re.sub(r'\s*WITH\s*RECURSIVE\s*', 'WITH RECURSIVE ', result, flags=re.IGNORECASE)
+        result = f"WITH RECURSIVE {filtered_cte} {filtered_main_query}"
+        print("result1------------------------------", filtered_cte)
+        print("result2===============================", filtered_main_query)
+        #result = re.sub(r'\s*WITH\s*RECURSIVE\s*', 'WITH RECURSIVE ', result, flags=re.IGNORECASE)
         return result
 
     def _filter_recursive_cte(self, cte_part, client_id):
@@ -544,25 +577,27 @@ class SQLQueryFilter:
         if 'UNION ALL' in str(parsed).upper():
             parts = str(parsed).split('UNION ALL', 1)
             filtered_parts = []
-            for i, part in enumerate(parts):
+            for part in enumerate(parts):
                 parsed_part = sqlparse.parse(part)[0]
-                tables = self.extractor.extract_tables(parsed_part)
+                tables = self._extract_tables_info(parsed_part)
                 filters = []
                 for table in tables:
-                    filter_condition = self.filter_applier.apply_filter(table, client_id)
-                    if filter_condition:
-                        filters.append(filter_condition)
+                    matching_table = self._find_matching_table(table['name'], table['schema'])
+                    if matching_table:
+                        client_id_column = self.client_tables[matching_table]
+                        filters.append(f'{self._quote_identifier(table["name"])}.{self._quote_identifier(client_id_column)} = {client_id}')
                 
                 if filters:
-                    where_clause = next((token for token in parsed_part.tokens if isinstance(token, Where)), None)
-                    new_where_clause = self.where_modifier.modify_where_clause(where_clause, ' AND '.join(filters))
-                    
-                    if where_clause:
-                        where_index = parsed_part.token_index(where_clause)
-                        parsed_part.tokens[where_index] = new_where_clause
+                    where_clause = ' AND '.join(filters)
+                    if 'WHERE' in str(parsed_part).upper():
+                        parsed_part = self._inject_where_clause(parsed_part, where_clause)
                     else:
-                        parsed_part.tokens.append(Token(Keyword, 'WHERE'))
-                        parsed_part.tokens.append(new_where_clause)
+                        parsed_part = TokenList(parsed_part.tokens + [
+                            Token(Whitespace, ' '),
+                            Token(Keyword, 'WHERE'),
+                            Token(Whitespace, ' '),
+                            Token(Name, where_clause)
+                        ])
                 
                 filtered_parts.append(str(parsed_part))
 

@@ -124,7 +124,8 @@ class TestSQLQueryFilterCTE(unittest.TestCase):
             'products': 'company_id',
             'inventory.items': 'organization_id',
             'items': 'organization_id',
-            'customers': 'customer_id'
+            'customers': 'customer_id',
+            'categories': 'company_id' # Added company_id to categories in client_table dictionary
         }
         self.filter = SQLQueryFilter(
             self.client_tables, schemas=['main', 'inventory'])
