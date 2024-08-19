@@ -11,7 +11,8 @@ class TestSQLQueryFilter(unittest.TestCase):
             'main.products': 'company_id',
             'products': 'company_id',
             'inventory.items': 'organization_id',
-            'items': 'organization_id'
+            'items': 'organization_id',
+            'categories': 'company_id' # Added company_id to categories in client_table dictionary
         }
         self.filter = SQLQueryFilter(
             self.client_tables, schemas=['main', 'inventory'])
@@ -123,7 +124,8 @@ class TestSQLQueryFilterCTE(unittest.TestCase):
             'products': 'company_id',
             'inventory.items': 'organization_id',
             'items': 'organization_id',
-            'customers': 'customer_id'
+            'customers': 'customer_id',
+            'categories': 'company_id' # Added company_id to categories in client_table dictionary
         }
         self.filter = SQLQueryFilter(
             self.client_tables, schemas=['main', 'inventory'])
@@ -244,34 +246,34 @@ class TestSQLQueryFilterCTE(unittest.TestCase):
     #     self.assertSQLEqual(
     #         self.filter.apply_client_filter(query, 1), expected)
 
-    # def test_recursive_cte(self):
-    #     query = '''
-    #     WITH RECURSIVE category_tree AS (
-    #         SELECT id, name, parent_id, 0 AS level
-    #         FROM categories
-    #         WHERE parent_id IS NULL
-    #         UNION ALL
-    #         SELECT c.id, c.name, c.parent_id, ct.level + 1
-    #         FROM categories c
-    #         JOIN category_tree ct ON c.parent_id = ct.id
-    #     )
-    #     SELECT * FROM category_tree
-    #     '''
-    #     expected = '''
-    #     WITH RECURSIVE category_tree AS (
-    #         SELECT id, name, parent_id, 0 AS level
-    #         FROM categories
-    #         WHERE parent_id IS NULL AND "categories"."company_id" = 1
-    #         UNION ALL
-    #         SELECT c.id, c.name, c.parent_id, ct.level + 1
-    #         FROM categories c
-    #         JOIN category_tree ct ON c.parent_id = ct.id
-    #         WHERE "c"."company_id" = 1
-    #     )
-    #     SELECT * FROM category_tree
-    #     '''
-    #     self.assertSQLEqual(
-    #         self.filter.apply_client_filter(query, 1), expected)
+    def test_recursive_cte(self):
+        query = '''
+        WITH RECURSIVE category_tree AS (
+            SELECT id, name, parent_id, 0 AS level
+            FROM categories
+            WHERE parent_id IS NULL
+            UNION ALL
+            SELECT c.id, c.name, c.parent_id, ct.level + 1
+            FROM categories c
+            JOIN category_tree ct ON c.parent_id = ct.id
+        )
+        SELECT * FROM category_tree
+        '''
+        expected = '''
+        WITH RECURSIVE category_tree AS (
+            SELECT id, name, parent_id, 0 AS level
+            FROM categories
+            WHERE parent_id IS NULL AND "categories"."company_id" = 1
+            UNION ALL
+            SELECT c.id, c.name, c.parent_id, ct.level + 1
+            FROM categories c
+            JOIN category_tree ct ON c.parent_id = ct.id
+            WHERE "c"."company_id" = 1
+        )
+        SELECT * FROM category_tree
+        '''
+        self.assertSQLEqual(
+            self.filter.apply_client_filter(query, 1), expected)
 
 
 if __name__ == '__main__':
