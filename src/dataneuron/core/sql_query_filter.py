@@ -32,8 +32,8 @@ class SQLQueryFilter:
         if self._is_cte_query(parsed):
             return handle_cte_query(parsed, self._apply_filter_recursive, client_id)
 
-        for tokens in parsed.token:
-            if isinstance(tokens, Token) and tokens.ttype is DML:
+        for token in parsed.tokens:
+            if isinstance(token, Token) and token.ttype is DML:
                 if self._contains_set_operation(parsed):
                     return self._handle_set_operation(parsed, client_id)
                 elif self._contains_subquery(parsed):
