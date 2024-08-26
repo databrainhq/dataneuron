@@ -98,10 +98,10 @@ class TestSQLQueryFilter(unittest.TestCase):
         expected = 'SELECT * FROM (SELECT * FROM orders WHERE "orders"."user_id" = 1) AS subq'
         self.assertEqual(self.filter.apply_client_filter(query, 1), expected)
 
-    # def test_subquery_in_join(self):
-    #     query = 'SELECT o.* FROM orders o JOIN (SELECT * FROM products) p ON o.product_id = p.id'
-    #     expected = 'SELECT o.* FROM orders o JOIN (SELECT * FROM products WHERE "products"."company_id" = 1) p ON o.product_id = p.id WHERE "o"."user_id" = 1'
-    #     self.assertEqual(self.filter.apply_client_filter(query, 1), expected)
+    def test_subquery_in_join(self):
+        query = 'SELECT o.* FROM orders o JOIN (SELECT * FROM products) p ON o.product_id = p.id'
+        expected = 'SELECT o.* FROM orders o JOIN (SELECT * FROM products WHERE "products"."company_id" = 1) p ON o.product_id = p.id WHERE "o"."user_id" = 1'
+        self.assertEqual(self.filter.apply_client_filter(query, 1), expected)
 
     def test_nested_subqueries(self):
         query = 'SELECT * FROM (SELECT * FROM (SELECT * FROM orders) AS inner_subq) AS outer_subq'

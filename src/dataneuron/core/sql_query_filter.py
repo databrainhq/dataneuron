@@ -32,16 +32,14 @@ class SQLQueryFilter:
         if self._is_cte_query(parsed):
             return handle_cte_query(parsed, self._apply_filter_recursive, client_id)
 
-        if isinstance(parsed, Token) and parsed.ttype is DML:
-            return self._apply_filter_to_single_query(str(parsed), client_id)
-        elif self._contains_set_operation(parsed):
-            return self._handle_set_operation(parsed, client_id)
-        elif self._contains_subquery(parsed):
-            return self._handle_subquery(parsed, client_id)
-        else:
-            filtered_query = self._apply_filter_to_single_query(
-                str(parsed), client_id)
-            return self._handle_where_subqueries(sqlparse.parse(filtered_query)[0], client_id)
+        for tokens in parsed.token:
+            if isinstance(tokens, Token) and tokens.ttype is DML:
+                if self._contains_set_operation(parsed):
+                    return self._handle_set_operation(parsed, client_id)
+                elif self._contains_subquery(parsed):
+                    return self._handle_subquery(parsed, client_id)
+                else:
+                    return self._apply_filter_to_single_query(str(parsed), client_id)            
 
     def _contains_set_operation(self, parsed):
         set_operations = ('UNION', 'INTERSECT', 'EXCEPT')
@@ -363,25 +361,35 @@ class SQLQueryFilter:
     def _handle_subquery(self, parsed, client_id):
         result = []
         tokens = parsed.tokens if hasattr(parsed, 'tokens') else [parsed]
+        mainquery = []
 
         for token in tokens:
             if isinstance(token, Identifier) and token.has_alias():
                 if isinstance(token.tokens[0], Parenthesis):
+                    mainquery.append(" PLACEHOLDER ")
                     subquery = token.tokens[0].tokens[1:-1]
                     subquery_str = ' '.join(str(t) for t in subquery)
                     filtered_subquery = self._apply_filter_recursive(
                         sqlparse.parse(subquery_str)[0], client_id)
                     alias = token.get_alias()
-                    result.append(f"({filtered_subquery}) AS {alias}")
+                    AS_keyword = next((t for t in token.tokens if t.ttype == sqlparse.tokens.Keyword and t.value.upper() == 'AS'), None) # Checks for existence of 'AS' keyword
+
+                    if AS_keyword:
+                        result.append(f"({filtered_subquery}) AS {alias}")
+                    else:
+                        result.append(f"({filtered_subquery}) {alias}")
                 else:
-                    result.append(str(token))
+                    mainquery.append(str(token))
+
             elif isinstance(token, Parenthesis):
+                mainquery.append(" PLACEHOLDER ")
                 subquery = token.tokens[1:-1]
                 subquery_str = ' '.join(str(t) for t in subquery)
                 filtered_subquery = self._apply_filter_recursive(
                     sqlparse.parse(subquery_str)[0], client_id)
                 result.append(f"({filtered_subquery})")
-            elif isinstance(token, Where):
+
+            elif isinstance(token, Where) and 'IN' in str(parsed):
                 try:
                     filtered_where = self._handle_where_subqueries(
                         token, client_id)
@@ -389,19 +397,15 @@ class SQLQueryFilter:
                 except Exception as e:
                     result.append(str(token))
             else:
-                # Preserve whitespace tokens
-                if token.is_whitespace:
-                    result.append(str(token))
-                else:
-                    # Add space before and after non-whitespace tokens, except for punctuation
-                    if result and not result[-1].endswith(' ') and not str(token).startswith((')', ',', '.')):
-                        result.append(' ')
-                    result.append(str(token))
-                    if not str(token).endswith(('(', ',')):
-                        result.append(' ')
+                mainquery.append(str(token))
 
-        final_result = ''.join(result).strip()
-        return final_result
+        mainquery = ''.join(mainquery).strip()
+        if ' IN ' in str(parsed):
+            return f"{mainquery} {result[0]}"
+        else:
+            filtered_mainquery = self._apply_filter_to_single_query(mainquery, client_id)
+            query = filtered_mainquery.replace("PLACEHOLDER", result[0])
+            return query 
 
     def _handle_where_subqueries(self, where_clause, client_id):
         if self._is_cte_query(where_clause):
