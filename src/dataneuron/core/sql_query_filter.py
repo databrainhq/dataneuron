@@ -28,14 +28,14 @@ class SQLQueryFilter:
 
         return self._cleanup_whitespace(str(result))
 
-    def _apply_filter_recursive(self, parsed, client_id):
+    def _apply_filter_recursive(self, parsed, client_id, cte_name: str = None):
         if self._is_cte_query(parsed):
             return handle_cte_query(parsed, self._apply_filter_recursive, client_id)
 
         for token in parsed.tokens:
             if isinstance(token, Token) and token.ttype is DML:
                 if self._contains_set_operation(parsed):
-                    return self._handle_set_operation(parsed, client_id)
+                    return self._handle_set_operation(parsed, client_id, True, cte_name) if cte_name else self._handle_set_operation(parsed, client_id)
                 elif self._contains_subquery(parsed):
                     return self._handle_subquery(parsed, client_id)
                 else:
@@ -225,7 +225,7 @@ class SQLQueryFilter:
 
         return str(parsed)
 
-    def _handle_set_operation(self, parsed, client_id):
+    def _handle_set_operation(self, parsed, client_id, is_cte: bool = False, cte_name: str = None):
         print("Handling set operation")
         # Split the query into individual SELECT statements
         statements = []
@@ -251,9 +251,14 @@ class SQLQueryFilter:
         # Apply the filter to each SELECT statement
         filtered_statements = []
         for stmt in statements:
-            filtered_stmt = self._apply_filter_to_single_query(stmt, client_id)
-            filtered_statements.append(filtered_stmt)
-            print(f"Filtered statement: {filtered_stmt}")
+            if is_cte:
+                filtered_stmt = self._apply_filter_to_single_CTE_query(stmt, client_id, cte_name)
+                filtered_statements.append(filtered_stmt)
+                print(f"Filtered statement: {filtered_stmt}")
+            else:
+                filtered_stmt = self._apply_filter_to_single_query(stmt, client_id)
+                filtered_statements.append(filtered_stmt)
+                print(f"Filtered statement: {filtered_stmt}")
 
         # Reconstruct the query
         result = f" {set_operation} ".join(filtered_statements)
@@ -512,3 +517,43 @@ class SQLQueryFilter:
             if isinstance(token, Identifier):
                 return token.get_real_name()
         return None
+
+    def _apply_filter_to_single_CTE_query(self, sql_query: str, client_id: int, cte_name: str) -> str:
+        parts = sql_query.split(' GROUP BY ')
+        main_query = parts[0]
+        
+        group_by = f" GROUP BY {parts[1]}" if len(parts) > 1 else ""
+        parsed = sqlparse.parse(main_query)[0]
+        tables_info = self._extract_tables_info(parsed)
+
+        filters = []
+        _table_ = []
+
+        for table_info in tables_info:
+                if table_info['name'] != cte_name:
+                    table_dict = {
+                        "name": table_info['name'],
+                        "alias": table_info['alias'],
+                        "schema": table_info['schema']
+                    }
+                    _table_.append(table_dict)
+                    
+        matching_table = self._find_matching_table(_table_[0]['name'], _table_[0]['schema'])
+
+        if matching_table:
+            client_id_column = self.client_tables[matching_table]
+            table_reference = _table_[0]['alias'] or _table_[0]['name']
+
+            filters.append(f'{self._quote_identifier(table_reference)}.{self._quote_identifier(client_id_column)} = {client_id}')
+
+        if filters:
+            where_clause = " AND ".join(filters)
+            if 'WHERE' in main_query.upper():
+                where_parts = main_query.split('WHERE', 1)
+                result = f"{where_parts[0]} WHERE {where_parts[1].strip()} AND {where_clause}"
+            else:
+                result = f"{main_query} WHERE {where_clause}"
+        else:
+                result = main_query
+
+        return result + group_by

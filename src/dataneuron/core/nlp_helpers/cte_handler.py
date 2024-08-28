@@ -49,6 +49,12 @@ def extract_main_query(parsed):
 def filter_cte(cte_part, filter_function, client_id):
     filtered_ctes = []
 
+    is_recursive = False
+
+    for token in cte_part.tokens:
+        if token.ttype is Keyword and token.value.upper() == 'RECURSIVE':
+            is_recursive = True
+
     def process_cte(token):
         if isinstance(token, sqlparse.sql.Identifier):
             cte_name = token.get_name()
@@ -57,7 +63,7 @@ def filter_cte(cte_part, filter_function, client_id):
                 # Remove outer parentheses
                 inner_query_str = str(inner_query)[1:-1]
                 filtered_inner_query = filter_function(
-                    sqlparse.parse(inner_query_str)[0], client_id)
+                    sqlparse.parse(inner_query_str)[0], client_id, cte_name)
                 filtered_ctes.append(f"{cte_name} AS ({filtered_inner_query})")
 
     for token in cte_part.tokens:
@@ -68,7 +74,10 @@ def filter_cte(cte_part, filter_function, client_id):
             process_cte(token)
 
     if filtered_ctes:
-        filtered_cte_str = "WITH " + ",\n".join(filtered_ctes)
+        if is_recursive:
+            filtered_cte_str = "WITH RECURSIVE " + ",\n".join(filtered_ctes)
+        else:
+            filtered_cte_str = "WITH " + ",\n".join(filtered_ctes)
     else:
         filtered_cte_str = ""
     return filtered_cte_str
