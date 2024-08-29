@@ -218,32 +218,32 @@ class TestSQLQueryFilterCTE(unittest.TestCase):
         self.assertSQLEqual(
             self.filter.apply_client_filter(query, 1), expected)
 
-def test_cte_with_subquery(self):
-    query = '''
-    WITH top_products AS (
-        SELECT p.id, p.name, SUM(o.quantity) as total_sold
-        FROM products p
-        JOIN (SELECT * FROM orders WHERE status = 'completed') o ON p.id = o.product_id
-        GROUP BY p.id, p.name
-        ORDER BY total_sold DESC
-        LIMIT 10
-    )
-    SELECT * FROM top_products
-    '''
-    expected = '''
-    WITH top_products AS (
-        SELECT p.id, p.name, SUM(o.quantity) as total_sold
-        FROM products p
-        JOIN (SELECT * FROM orders WHERE status = 'completed' AND "orders"."user_id" = 1) o ON p.id = o.product_id
-        WHERE "p"."company_id" = 1
-        GROUP BY p.id, p.name
-        ORDER BY total_sold DESC
-        LIMIT 10
-    )
-    SELECT * FROM top_products
-    '''
-    self.assertSQLEqual(
-        self.filter.apply_client_filter(query, 1), expected)
+    def test_cte_with_subquery(self):
+        query = '''
+        WITH top_products AS (
+            SELECT p.id, p.name, SUM(o.quantity) as total_sold
+            FROM products p
+            JOIN (SELECT * FROM orders WHERE status = 'completed') o ON p.id = o.product_id
+            GROUP BY p.id, p.name
+            ORDER BY total_sold DESC
+            LIMIT 10
+        )
+        SELECT * FROM top_products
+        '''
+        expected = '''
+        WITH top_products AS (
+            SELECT p.id, p.name, SUM(o.quantity) as total_sold
+            FROM products p
+            JOIN (SELECT * FROM orders WHERE status = 'completed' AND "orders"."user_id" = 1) o ON p.id = o.product_id
+            WHERE "p"."company_id" = 1
+            GROUP BY p.id, p.name
+            ORDER BY total_sold DESC
+            LIMIT 10
+        )
+        SELECT * FROM top_products
+        '''
+        self.assertSQLEqual(
+            self.filter.apply_client_filter(query, 1), expected)
 
     def test_recursive_cte(self):
         query = '''
