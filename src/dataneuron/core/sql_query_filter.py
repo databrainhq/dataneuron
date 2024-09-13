@@ -302,70 +302,82 @@ class SQLQueryFilter:
         return result + group_by
 
     def _contains_subquery(self, parsed):
-        tokens = parsed.tokens if hasattr(parsed, 'tokens') else [parsed]
-        i = 0
+        tokens = parsed.tokens if hasattr(parsed, 'tokens') else [parsed] 
+        
         set_operations = {'UNION', 'INTERSECT', 'EXCEPT'}
         joins = {'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN'}
         case_end_keywords = {'WHEN', 'THEN', 'ELSE'}
         where_keywords = {'IN', 'EXISTS', 'ANY', 'ALL', 'NOT IN'}
+        end_keywords = {'GROUP BY', 'HAVING', 'ORDER BY'}
 
+        i = 0
         while i < len(tokens):
             token = tokens[i]
-            
-            if token.ttype is DML and token.value.upper() == 'SELECT':
-                # Find the index of the FROM clause
-                k = i + 1
-                while k < len(tokens) and not (tokens[k].ttype == Keyword and tokens[k].value.upper() == 'FROM'):
-                    k += 1
 
-                # Check for CASE expressions or inline subqueries between SELECT and FROM
-                for j in range(i + 1, k):
-                    next_token = tokens[j]
-                    if str(next_token).startswith("CASE"):
-                        case_token_list = [t for t in TokenList(next_token).flatten() if t.ttype == Keyword]
-                        if any(k.value.upper() in case_end_keywords for k in case_token_list):
-                            return True
-                    elif "(" in str(next_token) and ")" in str(next_token):
-                        return True
+            if token.ttype is DML and token.value.upper() == 'SELECT':
+                k = i + 1    
+                while k < len(tokens) and not (tokens[k].ttype == Keyword and tokens[k].value.upper() == 'FROM'):  # Find the index of the FROM clause
+                    k += 1
 
                 from_index = k
                 where_index = None
+                k = from_index + 1 
 
-                # Find the WHERE clause if any
-                k = from_index + 1
                 while k < len(tokens):
-                    if tokens[k].ttype == Keyword and tokens[k].value.upper() == 'WHERE':
+                    if tokens[k].ttype == Keyword and tokens[k].value.upper() == 'WHERE': # Find the WHERE clause if any
                         where_index = k
                         break
                     k += 1
-
                 end_index = where_index if where_index else len(tokens)
 
-                # Check for set operations, joins, or inline subqueries after FROM
-                for j in range(from_index + 1, end_index):
+                for j in range(i + 1, k): # Between SELECT and FROM block
                     next_token = tokens[j]
                     if "(" in str(next_token) and ")" in str(next_token):
-                        if any(op in str(next_token).upper() for op in f"{set_operations}" or f"{set_operations} ALL"): # Set operations
-                            return True
-                        elif str(next_token).upper() in joins: #JOINs operations
+                        if re.search(r'\bCASE\b(\s+WHEN\b.*?\bTHEN\b.*?)+(\s+ELSE\b.*?)?(?=\s+END\b)', str(next_token), re.DOTALL):
                             return True
                         else:
-                            return True #Inline
+                            return True
 
-                # Process the WHERE clause if present
-                if where_index:
+                for j in range(from_index + 1, end_index): # FROM block checking for subqueries inside
+                    next_token = str(tokens[j]).upper()
+                    if "(" in next_token and ")" in next_token:
+                        if any(op in next_token for op in set_operations):  # Set operations
+                            return True
+                        elif any(join in next_token for join in joins):  # Joins
+                            return True # This condition verifies that at least one statement in JOINs is a subquery
+                        else:
+                            return True  # Inline subquery
+
+                if where_index: # Procced only if WHERE exists
                     for j in range(where_index + 1, len(tokens)):
                         next_token = tokens[j]
-                        if "(" in str(next_token) and ")" in str(next_token): #Inline
+                        token_str = str(next_token).upper()
+                        if "(" in token_str and ")" in token_str:  # Inline subquery
                             return True
-                        if str(next_token).startswith("CASE"): # Case END block inside WHERE
+                        if str(next_token).startswith("CASE"):  # CASE END block inside WHERE
                             case_token_list = [t for t in TokenList(next_token).flatten() if t.ttype == Keyword]
                             if any(k.value.upper() in case_end_keywords for k in case_token_list):
                                 return True
-                        if next_token.ttype == Keyword and next_token.value.upper() in where_keywords:
-                            return True # Where keywords - IN, EXISTS, ANY, etc
+                        if next_token.ttype == Keyword and next_token.value.upper() in where_keywords:  # WHERE keywords
+                            return True
+
+                for j in range(end_index, len(tokens)): # WHERE block checking for subqueries
+                    next_token = tokens[j]
+                    token_str = str(next_token).upper()
+                    if next_token.ttype == Keyword and next_token.value.upper() in end_keywords:
+                        for m in range(j + 1, len(tokens)):
+                            after_end_keyword_token = tokens[m]
+                            after_end_token_str = str(after_end_keyword_token).upper()
+                            if "(" in after_end_token_str and ")" in after_end_token_str:  # Inline subquery
+                                return True
+                            if after_end_keyword_token.ttype == Keyword and after_end_keyword_token.value.upper() in where_keywords:  # Keywords like IN, EXISTS, etc.
+                                return True
+                            if str(after_end_keyword_token).startswith("CASE"):  # CASE END block after GROUP BY, etc.
+                                case_token_list = [t for t in TokenList(after_end_keyword_token).flatten() if t.ttype == Keyword]
+                                if any(k.value.upper() in case_end_keywords for k in case_token_list):
+                                    return True
             i += 1
-        return False
+        return None
 
     def _cleanup_whitespace(self, query: str) -> str:
         # Split the query into lines
