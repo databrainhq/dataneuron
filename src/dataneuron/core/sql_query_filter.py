@@ -303,48 +303,68 @@ class SQLQueryFilter:
 
     def _contains_subquery(self, parsed):
         tokens = parsed.tokens if hasattr(parsed, 'tokens') else [parsed]
+        i = 0
+        set_operations = {'UNION', 'INTERSECT', 'EXCEPT'}
+        joins = {'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN'}
+        case_end_keywords = {'WHEN', 'THEN', 'ELSE'}
+        where_keywords = {'IN', 'EXISTS', 'ANY', 'ALL', 'NOT IN'}
 
-        for i, token in enumerate(tokens):
-            if isinstance(token, Identifier) and token.has_alias():
-                if isinstance(token.tokens[0], Parenthesis):
-                    return True
-            elif isinstance(token, Parenthesis):
-                if any(t.ttype is DML and t.value.upper() == 'SELECT' for t in token.tokens):
-                    return True
-                # Recursively check inside parentheses
-                if self._contains_subquery(token):
-                    return True
-            elif isinstance(token, Where):
-                in_found = False
-                for j, sub_token in enumerate(token.tokens):
-                    if in_found:
-                        if isinstance(sub_token, Parenthesis):
-                            if any(t.ttype is DML and t.value.upper() == 'SELECT' for t in sub_token.tokens):
+        while i < len(tokens):
+            token = tokens[i]
+            
+            if token.ttype is DML and token.value.upper() == 'SELECT':
+                # Find the index of the FROM clause
+                k = i + 1
+                while k < len(tokens) and not (tokens[k].ttype == Keyword and tokens[k].value.upper() == 'FROM'):
+                    k += 1
+
+                # Check for CASE expressions or inline subqueries between SELECT and FROM
+                for j in range(i + 1, k):
+                    next_token = tokens[j]
+                    if str(next_token).startswith("CASE"):
+                        case_token_list = [t for t in TokenList(next_token).flatten() if t.ttype == Keyword]
+                        if any(k.value.upper() in case_end_keywords for k in case_token_list):
+                            return True
+                    elif "(" in str(next_token) and ")" in str(next_token):
+                        return True
+
+                from_index = k
+                where_index = None
+
+                # Find the WHERE clause if any
+                k = from_index + 1
+                while k < len(tokens):
+                    if tokens[k].ttype == Keyword and tokens[k].value.upper() == 'WHERE':
+                        where_index = k
+                        break
+                    k += 1
+
+                end_index = where_index if where_index else len(tokens)
+
+                # Check for set operations, joins, or inline subqueries after FROM
+                for j in range(from_index + 1, end_index):
+                    next_token = tokens[j]
+                    if "(" in str(next_token) and ")" in str(next_token):
+                        if any(op in str(next_token).upper() for op in f"{set_operations}" or f"{set_operations} ALL"): # Set operations
+                            return True
+                        elif str(next_token).upper() in joins: #JOINs operations
+                            return True
+                        else:
+                            return True #Inline
+
+                # Process the WHERE clause if present
+                if where_index:
+                    for j in range(where_index + 1, len(tokens)):
+                        next_token = tokens[j]
+                        if "(" in str(next_token) and ")" in str(next_token): #Inline
+                            return True
+                        if str(next_token).startswith("CASE"): # Case END block inside WHERE
+                            case_token_list = [t for t in TokenList(next_token).flatten() if t.ttype == Keyword]
+                            if any(k.value.upper() in case_end_keywords for k in case_token_list):
                                 return True
-                        elif hasattr(sub_token, 'ttype') and not sub_token.is_whitespace:
-                            # Check if the token is a parenthesis-like structure
-                            if '(' in sub_token.value and ')' in sub_token.value:
-                                if 'SELECT' in sub_token.value.upper():
-                                    return True
-                            # If we find a non-whitespace token that's not a parenthesis, reset in_found
-                            in_found = False
-                    elif hasattr(sub_token, 'ttype') and sub_token.ttype is Keyword and sub_token.value.upper() == 'IN':
-                        in_found = True
-                    elif isinstance(sub_token, Comparison):
-                        for item in sub_token.tokens:
-                            if isinstance(item, Parenthesis):
-                                if self._contains_subquery(item):
-                                    return True
-            elif hasattr(token, 'ttype') and token.ttype is Keyword and token.value.upper() == 'IN':
-                next_token = tokens[i+1] if i+1 < len(tokens) else None
-                if next_token:
-                    if isinstance(next_token, Parenthesis):
-                        if any(t.ttype is DML and t.value.upper() == 'SELECT' for t in next_token.tokens):
-                            return True
-                    elif hasattr(next_token, 'value') and '(' in next_token.value and ')' in next_token.value:
-                        if 'SELECT' in next_token.value.upper():
-                            return True
-
+                        if next_token.ttype == Keyword and next_token.value.upper() in where_keywords:
+                            return True # Where keywords - IN, EXISTS, ANY, etc
+            i += 1
         return False
 
     def _cleanup_whitespace(self, query: str) -> str:
