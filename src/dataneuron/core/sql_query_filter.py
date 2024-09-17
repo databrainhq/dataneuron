@@ -256,9 +256,16 @@ class SQLQueryFilter:
                 filtered_statements.append(filtered_stmt)
                 print(f"Filtered statement: {filtered_stmt}")
             else:
-                filtered_stmt = self._apply_filter_to_single_query(stmt, client_id)
-                filtered_statements.append(filtered_stmt)
-                print(f"Filtered statement: {filtered_stmt}")
+                match = re.search(r'\(([^()]*)\)', stmt)
+                if match:
+                    extracted_part = match.group(1)
+                    filtered_stmt = stmt.replace(extracted_part, self._apply_filter_to_single_query(extracted_part, client_id))
+                    filtered_statements.append(filtered_stmt)
+                    #print(f"Filtered statement: {filtered_stmt}")
+                else:
+                    filtered_stmt = self._apply_filter_to_single_query(stmt, client_id)
+                    filtered_statements.append(filtered_stmt)
+                    #print(f"Filtered statement: {filtered_stmt}")
 
         # Reconstruct the query
         result = f" {set_operation} ".join(filtered_statements)
