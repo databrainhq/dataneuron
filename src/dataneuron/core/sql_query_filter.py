@@ -1,13 +1,13 @@
 import re
 import sqlparse
 from sqlparse.sql import IdentifierList, Identifier, Token, TokenList, Parenthesis, Where, Comparison
-from sqlparse.tokens import Keyword, DML, Name, Whitespace, Punctuation
+from sqlparse.tokens import Keyword, DML
 from typing import List, Dict, Optional
+from .nlp_helpers.query_cleanup import _cleanup_whitespace
 from .nlp_helpers.cte_handler import handle_cte_query
 from .nlp_helpers.is_cte import is_cte_query
 from .nlp_helpers.is_subquery import _contains_subquery
-from .nlp_helpers.subquery_handler import _handle_subquery
-
+import importlib
 
 class SQLQueryFilter:
     def __init__(self, client_tables: Dict[str, str], schemas: List[str] = ['main'], case_sensitive: bool = False):
@@ -15,12 +15,14 @@ class SQLQueryFilter:
         self.schemas = schemas
         self.case_sensitive = case_sensitive
         self.filtered_tables = set()
-        self._is_cte_query = is_cte_query
+        self._cleanup_whitespace = _cleanup_whitespace
+
+        self._handle_subquery = importlib.import_module('subquery_handler') # Fixing circular import error
 
     def apply_client_filter(self, sql_query: str, client_id: int) -> str:
         self.filtered_tables = set()
         parsed = sqlparse.parse(sql_query)[0]
-        is_cte = self._is_cte_query(parsed)
+        is_cte = is_cte_query(parsed)
 
         if is_cte:
             return handle_cte_query(parsed, self._apply_filter_recursive, client_id)
@@ -29,7 +31,8 @@ class SQLQueryFilter:
         return self._cleanup_whitespace(str(result))
     
     def _apply_filter_recursive(self, parsed, client_id, cte_name: str = None):
-        if self._is_cte_query(parsed):
+
+        if is_cte_query(parsed):
             return handle_cte_query(parsed, self._apply_filter_recursive, client_id)
         else:
             for token in parsed.tokens:
@@ -37,7 +40,7 @@ class SQLQueryFilter:
                     if self._contains_set_operation(parsed) and not _contains_subquery(parsed):
                         return self._handle_set_operation(parsed, client_id, True, cte_name) if cte_name else self._handle_set_operation(parsed, client_id)
                     elif _contains_subquery(parsed):
-                        return _handle_subquery(parsed, client_id)
+                        return self._handle_subquery(parsed, client_id)
                     else:
                         return self._apply_filter_to_single_query(str(parsed), client_id)
                     
@@ -264,19 +267,3 @@ class SQLQueryFilter:
                 result = main_query
 
         return result + group_by
-
-    def _cleanup_whitespace(self, query: str) -> str:
-        # Split the query into lines
-        lines = query.split('\n')
-        cleaned_lines = []
-        for line in lines:
-            # Remove leading/trailing whitespace from each line
-            line = line.strip()
-            # Replace multiple spaces with a single space, but not in quoted strings
-            line = re.sub(r'\s+(?=(?:[^\']*\'[^\']*\')*[^\']*$)', ' ', line)
-            # Ensure single space after commas, but not in quoted strings
-            line = re.sub(
-                r'\s*,\s*(?=(?:[^\']*\'[^\']*\')*[^\']*$)', ', ', line)
-            cleaned_lines.append(line)
-        # Join the lines back together
-        return '\n'.join(cleaned_lines)
