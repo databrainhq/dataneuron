@@ -1,13 +1,15 @@
 import re
 import sqlparse
-from sqlparse.sql import IdentifierList, Identifier, Token, TokenList, Parenthesis, Where, Comparison
+from sqlparse.sql import IdentifierList, Identifier, Token, Parenthesis, Where, Comparison
 from sqlparse.tokens import Keyword, DML
 from typing import List, Dict, Optional
+
 from .nlp_helpers.query_cleanup import _cleanup_whitespace
 from .nlp_helpers.cte_handler import handle_cte_query
 from .nlp_helpers.is_cte import is_cte_query
 from .nlp_helpers.is_subquery import _contains_subquery
-import importlib
+from .nlp_helpers.subquery_handler import SubqueryHandler
+
 
 class SQLQueryFilter:
     def __init__(self, client_tables: Dict[str, str], schemas: List[str] = ['main'], case_sensitive: bool = False):
@@ -16,8 +18,8 @@ class SQLQueryFilter:
         self.case_sensitive = case_sensitive
         self.filtered_tables = set()
         self._cleanup_whitespace = _cleanup_whitespace
+        self.subquery_handler = SubqueryHandler(self._apply_filter_recursive, self._handle_set_operation)
 
-        self._handle_subquery = importlib.import_module('subquery_handler') # Fixing circular import error
 
     def apply_client_filter(self, sql_query: str, client_id: int) -> str:
         self.filtered_tables = set()
@@ -30,6 +32,7 @@ class SQLQueryFilter:
             result = self._apply_filter_recursive(parsed, client_id)
         return self._cleanup_whitespace(str(result))
     
+
     def _apply_filter_recursive(self, parsed, client_id, cte_name: str = None):
 
         if is_cte_query(parsed):
@@ -40,10 +43,11 @@ class SQLQueryFilter:
                     if self._contains_set_operation(parsed) and not _contains_subquery(parsed):
                         return self._handle_set_operation(parsed, client_id, True, cte_name) if cte_name else self._handle_set_operation(parsed, client_id)
                     elif _contains_subquery(parsed):
-                        return self._handle_subquery(parsed, client_id)
+                            return self.subquery_handler.handle_subquery(parsed)
                     else:
                         return self._apply_filter_to_single_query(str(parsed), client_id)
-                    
+
+
     def _contains_set_operation(self, parsed):
         set_operations = ('UNION', 'INTERSECT', 'EXCEPT')
         
@@ -52,6 +56,7 @@ class SQLQueryFilter:
                 return True
         return False
     
+
     def _handle_set_operation(self, parsed, client_id, is_cte: bool = False, cte_name: str = None):
         set_operations = {'UNION', 'INTERSECT', 'EXCEPT'}
         statements = []
@@ -89,7 +94,8 @@ class SQLQueryFilter:
 
         result = f" {set_operation} ".join(filtered_statements)
         return result
-                
+
+
     def _apply_filter_to_single_query(self, sql_query: str, client_id: int) -> str:
         parts = sql_query.split(' GROUP BY ')
         main_query = parts[0]
@@ -104,8 +110,8 @@ class SQLQueryFilter:
             schema = table_info['schema']
 
             matching_table = self._find_matching_table(table_name, schema)
-
-            if matching_table and matching_table not in self.filtered_tables:
+            
+            if matching_table:
                 client_id_column = self.client_tables[matching_table]
                 table_reference = table_alias or table_name
                 filters.append(f'{self._quote_identifier(table_reference)}.{self._quote_identifier(client_id_column)} = {client_id}')
@@ -123,6 +129,7 @@ class SQLQueryFilter:
 
         return result + group_by
     
+
     def _find_matching_table(self, table_name: str, schema: Optional[str] = None) -> Optional[str]:
         possible_names = [
             f"{schema}.{table_name}" if schema else table_name,
@@ -134,17 +141,21 @@ class SQLQueryFilter:
                 return name
         return None
     
+
     def _quote_identifier(self, identifier: str) -> str:
         return f'"{identifier}"'
     
+
     def _strip_quotes(self, identifier: str) -> str:
         return identifier.strip('"').strip("'").strip('`')
     
+
     def _case_insensitive_get(self, dict_obj: Dict[str, str], key: str) -> Optional[str]:
         if self.case_sensitive:
             return dict_obj.get(key)
         return next((v for k, v in dict_obj.items() if k.lower() == key.lower()), None)
     
+
     def _parse_table_identifier(self, identifier):
         schema = None
         alias = None
@@ -162,6 +173,7 @@ class SQLQueryFilter:
 
         return {'name': name, 'schema': schema, 'alias': alias}
 
+
     def _extract_tables_info(self, parsed, tables_info=None):
         if tables_info is None:
             tables_info = []
@@ -171,6 +183,7 @@ class SQLQueryFilter:
         self._extract_cte_tables(parsed, tables_info)
 
         return tables_info
+
 
     def _extract_from_clause_tables(self, parsed, tables_info):
         from_seen = False
@@ -191,6 +204,7 @@ class SQLQueryFilter:
                 tables_info.append(self._parse_table_identifier(
                     parsed.token_next(token)[1]))
 
+
     def _extract_where_clause_tables(self, parsed, tables_info):
         where_clause = next(
             (token for token in parsed.tokens if isinstance(token, Where)), None)
@@ -210,6 +224,7 @@ class SQLQueryFilter:
                             self._extract_from_clause_tables(
                                 subquery_parsed, tables_info)
 
+
     def _extract_cte_tables(self, parsed, tables_info):
         cte_start = next((i for i, token in enumerate(
             parsed.tokens) if token.ttype is Keyword and token.value.upper() == 'WITH'), None)
@@ -227,6 +242,7 @@ class SQLQueryFilter:
                         self._extract_tables_info(cte_parsed, tables_info)
                 elif token.ttype is DML and token.value.upper() == 'SELECT':
                     break
+
 
     def _apply_filter_to_single_CTE_query(self, sql_query: str, client_id: int, cte_name: str) -> str:
         parts = sql_query.split(' GROUP BY ')
