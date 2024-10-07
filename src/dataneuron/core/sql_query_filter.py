@@ -18,7 +18,7 @@ class SQLQueryFilter:
         self.case_sensitive = case_sensitive
         self.filtered_tables = set()
         self._cleanup_whitespace = _cleanup_whitespace
-        self.subquery_handler = SubqueryHandler(self._apply_filter_recursive, self._handle_set_operation)
+        self.subquery_handler = SubqueryHandler(self._apply_filter_recursive, self._handle_set_operation, self._find_matching_table)
 
 
     def apply_client_filter(self, sql_query: str, client_id: int) -> str:
