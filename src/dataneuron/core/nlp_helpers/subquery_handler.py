@@ -1,8 +1,9 @@
 import sqlparse
-from sqlparse.sql import Token
+from sqlparse.sql import Token, Identifier
 from sqlparse.tokens import Keyword, DML, Whitespace, Newline
 import re
 from query_cleanup import _cleanup_whitespace
+
 
 class SubqueryHandler:
     def __init__(self, query_filter=None, setop_query_filter=None, matching_table_finder=None):
@@ -12,6 +13,7 @@ class SubqueryHandler:
         self._cleanup_whitespace = _cleanup_whitespace
         self.client_id = 1
         self.schemas=['main', 'inventory']
+
 
     def SELECT_subquery(self, SELECT_block):
         select_elements = ' '.join(SELECT_block).strip().split(',')
@@ -33,29 +35,25 @@ class SubqueryHandler:
 
                 # Process WHEN-THEN pairs
                 for when, then in when_then_else_blocks:
-                    if re.search(r'\(.*?\bSELECT\b.*?\)', when, re.DOTALL):  # Check if WHEN has a subquery
+                    if re.search(r'\(.*?\bSELECT\b.*?\)', when, re.DOTALL):  #WHEN has a subquery
                         filtered_dict['subquery_list'].append(when)
-                    if re.search(r'\(.*?\bSELECT\b.*?\)', then, re.DOTALL):  # Check if THEN has a subquery
+                    if re.search(r'\(.*?\bSELECT\b.*?\)', then, re.DOTALL):  #THEN has a subquery
                         filtered_dict['subquery_list'].append(then)
 
-                # Process ELSE clause if exists
-                if else_clause and re.search(r'\(.*?\bSELECT\b.*?\)', else_clause.group(1), re.DOTALL):
+                if else_clause and re.search(r'\(.*?\bSELECT\b.*?\)', else_clause.group(1), re.DOTALL): #ELSE has a subquery
                     filtered_dict['subquery_list'].append(else_clause.group(1))         
 
-            # Handle simple subqueries outside CASE block
             elif '(' in element and ')' in element:
                 if re.search(r'\(.*?\bSELECT\b.*?\)', element, re.DOTALL):
                     filtered_dict['subquery_list'].append(element)
 
-        # Create placeholders and filter subqueries
         for i, subquery in enumerate(filtered_dict['subquery_list']):
             placeholder = f"<SELECT_PLACEHOLDER_{i}>"
+
             filtered_subquery = self.SQLQueryFilter(
                 sqlparse.parse(
-                    re.search(r'\(((?:[^()]+|\([^()]*\))*)\)', subquery).group(1)
-                )[0], 
-                self.client_id
-            )
+                    re.search(r'\(((?:[^()]+|\([^()]*\))*)\)', subquery).group(1))[0], self.client_id)
+            
             filtered_dict['placeholder_value'].append(placeholder)
             filtered_dict['filtered_subquery'].append(filtered_subquery)
 
@@ -75,6 +73,7 @@ class SubqueryHandler:
             }
         
         def _handle_joins():
+            alias = None
             for i, token in enumerate(FROM_block):
                 if join_found and isinstance(token, Token) and token.ttype == Keyword and token.value.upper() in joins:
                     previous_token = FROM_block[i - 1] if i > 0 else None
@@ -86,14 +85,26 @@ class SubqueryHandler:
 
             for statement in join_statements:
                 join_statement_str = _cleanup_whitespace(statement)
-                if self._find_matching_table(join_statement_str, self.schemas):
+                
+                for t in sqlparse.parse(join_statement_str)[0].tokens:
+                    if isinstance(t, Identifier):
+                        alias = t.get_alias()
+                        name = t.get_real_name()
+
+                if alias and self._find_matching_table(str(name), self.schemas) or \
+                    self._find_matching_table(join_statement_str, self.schemas):
 
                     filtered_table = self.SQLQueryFilter(
                         sqlparse.parse(f'SELECT * FROM {join_statement_str}')[0], self.client_id)
-                    
                     join_dict['filtered_matching_table'].append(f'({filtered_table})')
-                    join_dict['alias'].append(f"AS {join_statement_str}")
-                    join_dict['matching_table'].append(join_statement_str)
+                    
+                    if alias:
+                        join_dict['alias'].append(f"AS {alias}")
+                        join_dict['matching_table'].append(join_statement_str)
+                    else:
+                        
+                        join_dict['alias'].append(f"AS {join_statement_str}")
+                        join_dict['matching_table'].append(join_statement_str)
 
                 else:
                     if re.match(r'\(\s*([\s\S]*?)\s*\)', join_statement_str):
@@ -111,12 +122,14 @@ class SubqueryHandler:
                         elif re.match(r'\(\s*SELECT.*?\)\s*(?:AS\s+)?(\w+)?', join_statement_str, re.IGNORECASE | re.DOTALL):
                             subquery_match = re.match(r'\(\s*SELECT.*?\)\s*(?:AS\s+)?(\w+)?', join_statement_str, re.IGNORECASE | re.DOTALL)
                             inner_parentheses = re.search(r'\(((?:[^()]+|\([^()]*\))*)\)', join_statement_str).group(1)
-                            alias = subquery_match.group(1)
+                            alias = subquery_match.group(1) if subquery_match else ''
+                            start, end = subquery_match.span()
 
                             filtered_subquery = self.SetOP_QueryFilter(sqlparse.parse(inner_parentheses)[0], self.client_id)
+                            
                             join_dict['matching_table'].append(join_statement_str)
                             join_dict['filtered_matching_table'].append(f'({filtered_subquery})')
-                            join_dict['alias'].append(f"AS {alias}")
+                            join_dict['alias'].append(f"{alias}" if alias else "")
         
         def _not_handle_joins():
             nonlocal exit_early
@@ -136,15 +149,22 @@ class SubqueryHandler:
                 elif re.match(r'\(\s*SELECT.*?\)\s*(?:AS\s+)?(\w+)?', FROM_block_str, re.IGNORECASE | re.DOTALL):
                     subquery_match = re.match(r'\(\s*SELECT.*?\)\s*(?:AS\s+)?(\w+)?', FROM_block_str, re.IGNORECASE | re.DOTALL)
                     inner_parentheses = re.search(r'\(((?:[^()]+|\([^()]*\))*)\)', FROM_block_str).group(1)
-                    alias = subquery_match.group(1)
+                    alias_match = re.search(r'\)\s*(AS\s+\w+)?', FROM_block_str, re.IGNORECASE)
+                    alias = alias_match.group(1) if alias_match and alias_match.group(1) else ''
+                    start, end = subquery_match.span()
 
-                    filtered_subquery = self.SQLQueryFilter(sqlparse.parse(inner_parentheses)[0], self.client_id)
+                    filtered_subquery = self.SetOP_QueryFilter(sqlparse.parse(inner_parentheses)[0], self.client_id)
+                    
                     join_dict['matching_table'].append(FROM_block_str)
                     join_dict['filtered_matching_table'].append(f'({filtered_subquery})')
-                    join_dict['alias'].append(f"AS {alias}")
+                    join_dict['alias'].append(alias)
                 
-                elif self._find_matching_table(str(token), self.schemas):
-                    exit_early = True           
+                else:
+                    for t in sqlparse.parse(FROM_block_str)[0].tokens:
+                        if isinstance(t, Identifier):
+                            name = t.get_real_name()
+                            if self._find_matching_table(str(name), self.schemas):
+                                exit_early = True           
 
         for token in FROM_block:
             if isinstance(token, Token) and token.ttype == Keyword and token.value.upper() in joins:
@@ -198,10 +218,10 @@ class SubqueryHandler:
 
         return filtered_dict
     
+
     def END_subqueries(self, end_keywords_block):
-        end_keywords = {'GROUP BY', 'HAVING', 'ORDER BY'}
         
-        # Dictionary to hold the result
+        end_keywords = {'GROUP BY', 'HAVING', 'ORDER BY'}
         filtered_dict = {
             'subquery_list': [],
             'filtered_subquery': [],
@@ -219,13 +239,13 @@ class SubqueryHandler:
         
         if count >= 1: # If there is at least one end keyword
             for i in range(len(indices)):
-                start_idx = indices[i] # Start and end indices of each block
+                start_idx = indices[i]
+
                 if i < len(indices) - 1:
                     end_idx = indices[i + 1]  # Until the next keyword
                 else:
                     end_idx = len(end_keywords_block)  # Until the end of the block
 
-                # Extract the block between start_idx and end_idx
                 endsubquery_block = end_keywords_block[start_idx:end_idx]
                 endsubquery_block_str = ' '.join(endsubquery_block)
 
@@ -265,7 +285,6 @@ class SubqueryHandler:
                     k += 1
 
                 from_index = k
-                
                 k += 1
                 while k < len(tokens):
                     if isinstance(tokens[k], Token) and 'WHERE' in str(tokens[k]) and not \
@@ -304,42 +323,39 @@ class SubqueryHandler:
             END_dict = self.END_subqueries(end_keywords_block)
             
         SELECT_dict = self.SELECT_subquery(select_block)
+        FROM_filtering = self.FROM_subquery(from_block)
+
         subquery_dict = {
             "subqueries": SELECT_dict['subquery_list'] + WHERE_dict['subquery_list'] + END_dict['subquery_list'],
             "filtered subqueries": SELECT_dict['filtered_subquery'] + WHERE_dict['filtered_subquery'] + END_dict['filtered_subquery'],
             "placeholder names": SELECT_dict['placeholder_value'] + WHERE_dict['placeholder_value'] + END_dict['placeholder_value']
         }
-        FROM_filtering = self.FROM_subquery(from_block)
 
-
-        for i in range(len(subquery_dict['filtered subqueries'])):
-            pattern = re.search(r'\(((?:[^()]+|\([^()]*\))*)\)\s*(?:AS\s+)?(\w+)?', subquery_dict['subqueries'][i], re.IGNORECASE)
-            if pattern:
-                subquery_with_alias = pattern.group(1)
-                mainquery_str = str(parsed).replace(subquery_with_alias, subquery_dict["placeholder names"][i]) if i == 0 \
-                                else mainquery_str.replace(subquery_with_alias, subquery_dict["placeholder names"][i])
-                
-            
-            if FROM_filtering == 0:
-                if len(subquery_dict['subqueries']) == 1:
-                    filtered_mainquery = self.SQLQueryFilter(sqlparse.parse(mainquery_str)[0], self.client_id)
-                else:
-                    if i == 0:
-                        filtered_mainquery = mainquery_str
-                    elif i == len(subquery_dict['subqueries']) - 1:
-                        filtered_mainquery = self.SQLQueryFilter(sqlparse.parse(mainquery_str)[0], self.client_id)
-            else:
-                from_start = mainquery_str.upper().find('FROM')
-                where_start = mainquery_str.upper().find('WHERE')
-
-                if where_start == -1:  # If there's no WHERE clause
-                    next_clause_starts = [mainquery_str.upper().find(clause) for clause in ['GROUP BY', 'HAVING', 'ORDER BY', 'LIMIT'] if mainquery_str.upper().find(clause) != -1]
-                    where_start = min(next_clause_starts) if next_clause_starts else len(mainquery_str)
+        if FROM_filtering == 0:
+            for i in range(len(subquery_dict['filtered subqueries'])):
+                pattern = re.search(r'\(((?:[^()]+|\([^()]*\))*)\)\s*(?:AS\s+)?(\w+)?', subquery_dict['subqueries'][i], re.IGNORECASE)
+                if pattern:
+                    subquery_with_alias = pattern.group(1)
+                    mainquery_str = str(parsed).replace(subquery_with_alias, subquery_dict["placeholder names"][i]) if i == 0 \
+                                    else mainquery_str.replace(subquery_with_alias, subquery_dict["placeholder names"][i])
                     
-                part_to_replace = mainquery_str[from_start:where_start].strip()
-                filtered_mainquery = mainquery_str.replace(part_to_replace, f"FROM {FROM_filtering}")
+                    if len(subquery_dict['subqueries']) == 1:
+                        filtered_mainquery = self.SQLQueryFilter(sqlparse.parse(mainquery_str)[0], self.client_id)
+                    else:
+                        if i == 0:
+                            filtered_mainquery = mainquery_str
+                        elif i == len(subquery_dict['subqueries']) - 1:
+                            filtered_mainquery = self.SQLQueryFilter(sqlparse.parse(mainquery_str)[0], self.client_id)
+        else:
+            mainquery_str = str(parsed)
+
+            from_start = mainquery_str.upper().find('FROM')
+            where_start = mainquery_str.upper().find('WHERE')
+
+            part_to_replace = mainquery_str[from_start:where_start].strip()
+            filtered_mainquery = mainquery_str.replace(part_to_replace, f"FROM {FROM_filtering}")
 
         for placeholder, filtered_subquery in zip(subquery_dict['placeholder names'], subquery_dict['filtered subqueries']):
-                filtered_mainquery = filtered_mainquery.replace(placeholder, filtered_subquery)
-        
+            filtered_mainquery = filtered_mainquery.replace(placeholder, filtered_subquery)
+
         return filtered_mainquery
